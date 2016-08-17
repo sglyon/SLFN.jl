@@ -10,33 +10,36 @@ Neurocomputing, 2010 vol. 73 (16-18) pp. 3028-3038.
 
 http://linkinghub.elsevier.com/retrieve/pii/S0925231210003401
 """
-type TSELM{TA<:AbstractActivation,TV<:AbstractArray{Float64}} <: AbstractSLFN
+type TSELM{TA<:AbstractActivation,TN<:AbstractNodeInput,TV<:AbstractArray{Float64}} <: AbstractSLFN
     p::Int  # Number of training points
     q::Int  # Dimensionality of function domain
     ngroup::Int  # number of groups
     npg::Int  # nodes per group
     Lmax::Int  # maximum number of neurons
     activation::TA
+    neuron_type::TN
     At::Matrix{Float64}
     b::Vector{Float64}
     β::TV
 
-    function TSELM(p::Int, q::Int, ngroup::Int, npg::Int, Lmax::Int, activation::TA)
+    function TSELM(p::Int, q::Int, ngroup::Int, npg::Int, Lmax::Int, activation::TA,
+                   neuron_type::TN)
         WARNINGS[1] && warn("This routine is experimental!!")
-        new(p, q, ngroup, npg, Lmax, activation)
+        new(p, q, ngroup, npg, Lmax, activation, neuron_type)
     end
 end
 
 
-function TSELM{TA<:AbstractActivation,TV<:AbstractArray}(x::AbstractArray, t::TV,
-                                                         activation::TA=Sigmoid(),
-                                                         ngroup::Int=5,
-                                                         npg::Int=ceil(Int, size(x, 1)/10),
-                                                         Lmax::Int=size(x, 1))
+function TSELM{TA<:AbstractActivation,
+               TN<:AbstractNodeInput,
+               TV<:AbstractArray}(x::AbstractArray, t::TV, activation::TA=Sigmoid(),
+                                  neuron_type::TN=Linear(), Lmax::Int=size(x, 1),
+                                  ngroup::Int=5,
+                                  npg::Int=ceil(Int, size(x, 1)/10))
     q = size(x, 2)  # dimensionality of function domain
     p = size(x, 1)  # number of training points
     Lmax = min(p, Lmax)  # can't have more neurons than obs
-    out = TSELM{TA,TV}(p, q, ngroup, npg, Lmax, activation)
+    out = TSELM{TA,TN,TV}(p, q, ngroup, npg, Lmax, activation, neuron_type)
     fit!(out, x, t)
 end
 
@@ -48,11 +51,7 @@ _split_data(a::AbstractMatrix) = (a[1:2:end, :], a[2:2:end, :])
 
 ## API methods
 isexact(elm::TSELM) = elm.p == false
-function input_to_node(elm::TSELM, x::AbstractArray, Wt::AbstractMatrix,
-                       d::AbstractVector)
-    x*Wt .+ d'
-end
-
+input_to_node(elm::TSELM, x, Wt, d) = input_to_node(elm.neuron_type, x, Wt, d)
 function hidden_out(elm::TSELM, x::AbstractArray, Wt::AbstractMatrix,
                     d::AbstractVector)
     elm.activation(input_to_node(elm, x, Wt, d))
@@ -68,10 +67,9 @@ function forward_selection!(elm::TSELM, x::AbstractArray, t::AbstractVector)
 
     # initialize
     L = 0
-    H = zeros(N, elm.Lmax)
     R = eye(N, N)
-    A = zeros(elm.q, elm.Lmax)
-    b = zeros(elm.Lmax)
+    A = zeros(elm.q, elm.Lmax + elm.npg)
+    b = zeros(elm.Lmax + elm.npg)
 
     while L < elm.Lmax
         L += elm.npg
@@ -80,7 +78,6 @@ function forward_selection!(elm::TSELM, x::AbstractArray, t::AbstractVector)
         # variables to hold max ΔJ and corresponding δH for this
         # batch of groups. Define empty matrices to get type stability
         ΔJ = -Inf
-        δH = zeros(0, 0)
         ΔR = zeros(0, 0)
         Ak = zeros(0, 0)
         bk = zeros(0)
@@ -94,12 +91,13 @@ function forward_selection!(elm::TSELM, x::AbstractArray, t::AbstractVector)
             δHi = hidden_out(elm, train_x, aiT, bi)
 
             # Step 3: compute the contribution of this group to cost function
+            # TODO: sometimes (δHi'R*δHi) is singular. I can loop over above until
+            #       it works
             ΔRi = (R*δHi)*((δHi'R*δHi) \ (δHi'R'))
             ΔJi = dot(train_t, ΔRi*train_t)
 
             # Step 4: keep this group if it is the best we've seen so far
             if ΔJi > ΔJ
-                δH = δHi
                 ΔR = ΔRi
                 Ak = aiT
                 bk = bi
@@ -110,7 +108,6 @@ function forward_selection!(elm::TSELM, x::AbstractArray, t::AbstractVector)
         A[:, inds] = Ak
         b[inds] = bk
         R -= ΔR
-        H[:, inds] = δH
     end
 
     # Step 6: Find the optimal number of neurons pstar
@@ -182,14 +179,19 @@ function (elm::TSELM)(y′::AbstractArray)
     return hidden_out(elm, y′, elm.At, elm.b) * elm.β
 end
 
-function Base.show{TA}(io::IO, elm::TSELM{TA})
+function Base.show{TA,TN}(io::IO, elm::TSELM{TA,TN})
     s =
     """
     TSELM with
       - $(TA) Activation function
+      - $(TN) Neuron type
       - $(elm.q) input dimension(s)
       - $(size(elm.At, 2)) neuron(s)
       - $(elm.p) training point(s)
+      - Algorithm parameters:
+          - $(elm.ngroup) trials per group
+          - $(elm.npg) neurons per group
+          - $(elm.Lmax) max neurons
     """
     print(io, s)
 end

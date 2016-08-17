@@ -45,7 +45,6 @@ hidden_out(elm::ELM, y::AbstractArray) = elm.activation(input_to_node(elm, y))
 
 function fit!(elm::ELM, y::AbstractArray, u::AbstractArray)
     S = hidden_out(elm, y)
-    @show size(S)
     elm.v = S \ u
     elm
 end
