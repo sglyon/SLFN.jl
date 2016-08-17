@@ -1,3 +1,15 @@
+"""
+
+#### References
+
+Extreme learning machine: Theory and applications.
+
+Guang-Bin Huang, Qin-Yu Zhu, and Chee-Kheong Siew.
+
+Neurocomputing, 2006 vol. 70 (1-3) pp. 489-501.
+
+http://linkinghub.elsevier.com/retrieve/pii/S0925231206000385
+"""
 type ELM{TA<:AbstractActivation,TV<:AbstractArray{Float64}} <: AbstractSLFN
     p::Int  # Number of training points
     q::Int  # Dimensionality of function domain
@@ -26,7 +38,7 @@ function ELM{TA<:AbstractActivation,TV<:AbstractArray}(y::AbstractArray, u::TV,
 end
 
 ## API methods
-isexact(elm::ELM) = elm.p == elm.s
+isexact(elm::ELM) = false
 input_to_node(elm::ELM, y::AbstractArray) = y*elm.Wt .+ elm.d'
 hidden_out(elm::ELM, y::AbstractArray) = elm.activation(input_to_node(elm, y))
 
