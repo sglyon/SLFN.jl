@@ -10,40 +10,42 @@ Neurocomputing, 2006 vol. 70 (1-3) pp. 489-501.
 
 http://linkinghub.elsevier.com/retrieve/pii/S0925231206000385
 """
-type ELM{TA<:AbstractActivation,TV<:AbstractArray{Float64}} <: AbstractSLFN
+type ELM{TA<:AbstractActivation,TN<:AbstractNodeInput,TV<:AbstractArray{Float64}} <: AbstractSLFN
     p::Int  # Number of training points
     q::Int  # Dimensionality of function domain
     s::Int  # number of neurons
     activation::TA
+    neuron_type::TN
     Wt::Matrix{Float64}  # transpose of W matrix
     d::Vector{Float64}
     v::TV
 
-    function ELM(p::Int, q::Int, s::Int, activation::TA)
+    function ELM(p::Int, q::Int, s::Int, activation::TA, neuron_type::TN)
         Wt = 2*rand(q, s) - 1
         d = rand(s)
-        new(p, q, s, activation, Wt, d)
+        new(p, q, s, activation, neuron_type, Wt, d)
     end
 end
 
-
-function ELM{TA<:AbstractActivation,TV<:AbstractArray}(y::AbstractArray, u::TV,
-                                                       activation::TA=SoftPlus(),
-                                                       s::Int=size(y, 1))
+function ELM{TA<:AbstractActivation,
+             TN<:AbstractNodeInput,
+             TV<:AbstractArray}(y::AbstractArray, u::TV, activation::TA=SoftPlus(),
+                                neuron_type::TN=Linear(), s::Int=size(y, 1))
     q = size(y, 2)  # dimensionality of function domain
     p = size(y, 1)  # number of training points
     s = min(p, s)   # Can't have more neurons than training points
-    out = ELM{TA,TV}(p, q, s, activation)
+    out = ELM{TA,TN,TV}(p, q, s, activation, neuron_type)
     fit!(out, y, u)
 end
 
 ## API methods
 isexact(elm::ELM) = false
-input_to_node(elm::ELM, y::AbstractArray) = y*elm.Wt .+ elm.d'
+input_to_node(elm::ELM, y::AbstractArray) = input_to_node(elm.neuron_type, y, elm.Wt, elm.d)
 hidden_out(elm::ELM, y::AbstractArray) = elm.activation(input_to_node(elm, y))
 
 function fit!(elm::ELM, y::AbstractArray, u::AbstractArray)
     S = hidden_out(elm, y)
+    @show size(S)
     elm.v = S \ u
     elm
 end
