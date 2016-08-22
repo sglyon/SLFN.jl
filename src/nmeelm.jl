@@ -55,6 +55,109 @@ isexact(elm::NMEELM) = false
 input_to_node(elm::NMEELM, x::AbstractArray) = input_to_node(elm.neuron_type, x, elm.Wt, elm.d)
 hidden_out(elm::NMEELM, x::AbstractArray) = elm.activation(input_to_node(elm, x))
 
+## Nelder-Mead -- Simplex functions
+@inline centroid(x::AbstractArray) = sum(x[1:end-1]) / (length(x) - 1)
+@inline reflect(elm::NMEELM, xhat::Number, xnp1::Number) = (1+elm.ρ)*xhat - elm.ρ*xnp1
+@inline expand(elm::NMEELM, xhat::Number, xr::Number) = xhat + elm.χ*(xr - xhat)
+@inline ocontract(elm::NMEELM, xhat::Number, xr::Number) = xhat + elm.γ*(xr - xhat)
+@inline icontract(elm::NMEELM, xhat::Number, xnp1::Number) = xhat + elm.γ*(xnp1 - xhat)
+@inline shrink(elm::NMEELM, x1::Number, xi::Number) = x1 + elm.α*(xi - x1)
+
+function replace_last_sorted!(x::AbstractVector, fx::AbstractVector, xnew::Number, fxnew::Number)
+    # nth position
+    n = searchsortedfirst(fx, fxnew)
+
+    # Insert x and fx into correct position
+    insert!(x, n, xnew)
+    insert!(fx, n, fxnew)
+
+    # Remove last element
+    pop!(x)
+    pop!(fx)
+
+    return nothing
+end
+
+function shrink_all!(x::AbstractVector, fx::AbstractVector, elm::NMEELM, f::Function)
+    # Get information needed repeatedly
+    x1, n = x[1], length(x)
+
+    # Shrink all point
+    for i=1:n
+        x[i] = x1 + elm.α*(x[i] - x[1])
+        fx[i] = f(x[i])
+    end
+
+    perm_2_sort = sortperm(fx)
+    copy!(x, x[perm_2_sort])
+    copy!(fx, fx[perm_2_sort])
+
+    return nothing
+end
+
+"""
+Note: Treats x and fx as if they are already sorted. This is ensured within `ksimplex`,
+      but if you call this function outside of that context ensure that you are keeping
+      with that restriction or weird (wrong) things could happen
+"""
+function singlesimplex!(x::AbstractVector, fx::AbstractVector, elm::NMEELM, f::Function)
+    # Get information we will use repeatedly
+    x1, xn, xnp1 = x[1], x[end-1], x[end]
+    fx1, fxn, fxnp1 = fx[1], fx[end-1], fx[end]
+
+    # First compute the centroid
+    xhat = centroid(x)
+
+    # Now compute the reflection point
+    xr = reflect(elm, xhat, x[end])
+    fxr = f(xr)
+
+    # Begin obnoxious number of ifs ...
+    # First check whether to just return reflected point
+    if fx1 < fxr < fxn
+        replace_last_sorted!(x, fx, xr, fxr)
+    # If not then check the expanded point
+    elseif fxr < fxn
+        # Compute expansion point
+        xe = expand(elm, xhat, xr)
+        fxe = f(xe)
+
+        # If fxr was smaller than second to last return smaller of reflected and
+        # expanded points
+        fxr < fxe ? replace_last_sorted!(x, fx, xr, fxr) : replace_last_sorted!(x, fx, xe, fxe)
+    # If not reflected or expanded then check contractions
+    elseif fxn < fxr < fxnp1
+        # If between last 2 points then use outside contraction
+        xoc = ocontract(elm, xhat, xr)
+        fxoc = f(xoc)
+        fxoc < fxr ? replace_last_sorted(x, fx, xoc, fxoc) : shrink_all!(x, fx)
+    else
+        # If larger than last point then use inside contraction
+        xic = icontract(elm, xhat, xnp1)
+        fxic = f(xic)
+
+        # If better than worst point, replace it
+        fxic < fnp1 ? replace_last_sorted(x, fx, xic, fxic) : shrink_all!(x, fx)
+    end
+
+    return nothing
+end
+
+function ksimplex(x::AbstractVector, elm::NMEELM, f::Function)
+    # Apply function to each element of vector
+    fxout = map(f, x)
+
+    # Sort
+    perm_2_sort = sortperm(fx)
+    xout = x[perm_2_sort]
+    copy!(fxout, fxout[perm_2_sort])
+
+    for i=1:elm.k
+        singlesimplex!(xout, fxout, elm, f)
+    end
+
+    return xout, fxout
+end
 
 function fit!(elm::NMEELM, x::AbstractArray, y::AbstractArray)
     # ------- Step 1: initialize
