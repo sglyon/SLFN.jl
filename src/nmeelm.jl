@@ -56,12 +56,12 @@ input_to_node(elm::NMEELM, x::AbstractArray) = input_to_node(elm.neuron_type, x,
 hidden_out(elm::NMEELM, x::AbstractArray) = elm.activation(input_to_node(elm, x))
 
 ## Nelder-Mead -- Simplex functions
-@inline centroid(x::AbstractArray) = sum(x[1:end-1]) / (length(x) - 1)
-@inline reflect(elm::NMEELM, xhat::Number, xnp1::Number) = (1+elm.ρ)*xhat - elm.ρ*xnp1
-@inline expand(elm::NMEELM, xhat::Number, xr::Number) = xhat + elm.χ*(xr - xhat)
-@inline ocontract(elm::NMEELM, xhat::Number, xr::Number) = xhat + elm.γ*(xr - xhat)
-@inline icontract(elm::NMEELM, xhat::Number, xnp1::Number) = xhat + elm.γ*(xnp1 - xhat)
-@inline shrink(elm::NMEELM, x1::Number, xi::Number) = x1 + elm.α*(xi - x1)
+@inline _centroid(x::AbstractArray) = sum(x[1:end-1]) / (length(x) - 1)
+@inline _reflect(elm::NMEELM, xhat::Number, xnp1::Number) = (1+elm.ρ)*xhat - elm.ρ*xnp1
+@inline _expand(elm::NMEELM, xhat::Number, xr::Number) = xhat + elm.χ*(xr - xhat)
+@inline _ocontract(elm::NMEELM, xhat::Number, xr::Number) = xhat + elm.γ*(xr - xhat)
+@inline _icontract(elm::NMEELM, xhat::Number, xnp1::Number) = xhat + elm.γ*(xnp1 - xhat)
+@inline _shrink(elm::NMEELM, x1::Number, xi::Number) = x1 + elm.α*(xi - x1)
 
 function replace_last_sorted!(x::AbstractVector, fx::AbstractVector, xnew::Number, fxnew::Number)
     # nth position
@@ -84,7 +84,7 @@ function shrink_all!(x::AbstractVector, fx::AbstractVector, elm::NMEELM, f::Func
 
     # Shrink all point
     for i=1:n
-        x[i] = x1 + elm.α*(x[i] - x[1])
+        x[i] = _shrink(elm, x1, x[i])
         fx[i] = f(x[i])
     end
 
@@ -106,10 +106,10 @@ function singlesimplex!(x::AbstractVector, fx::AbstractVector, elm::NMEELM, f::F
     fx1, fxn, fxnp1 = fx[1], fx[end-1], fx[end]
 
     # First compute the centroid
-    xhat = centroid(x)
+    xhat = _centroid(x)
 
     # Now compute the reflection point
-    xr = reflect(elm, xhat, x[end])
+    xr = _reflect(elm, xhat, x[end])
     fxr = f(xr)
 
     # Begin obnoxious number of ifs ...
@@ -119,7 +119,7 @@ function singlesimplex!(x::AbstractVector, fx::AbstractVector, elm::NMEELM, f::F
     # If not then check the expanded point
     elseif fxr < fxn
         # Compute expansion point
-        xe = expand(elm, xhat, xr)
+        xe = _expand(elm, xhat, xr)
         fxe = f(xe)
 
         # If fxr was smaller than second to last return smaller of reflected and
@@ -128,12 +128,12 @@ function singlesimplex!(x::AbstractVector, fx::AbstractVector, elm::NMEELM, f::F
     # If not reflected or expanded then check contractions
     elseif fxn < fxr < fxnp1
         # If between last 2 points then use outside contraction
-        xoc = ocontract(elm, xhat, xr)
+        xoc = _ocontract(elm, xhat, xr)
         fxoc = f(xoc)
         fxoc < fxr ? replace_last_sorted(x, fx, xoc, fxoc) : shrink_all!(x, fx)
     else
         # If larger than last point then use inside contraction
-        xic = icontract(elm, xhat, xnp1)
+        xic = _icontract(elm, xhat, xnp1)
         fxic = f(xic)
 
         # If better than worst point, replace it
