@@ -45,10 +45,6 @@ function OSELM{TA<:AbstractActivation,
 end
 
 ## API methods
-isexact(elm::OSELM) = false
-input_to_node(elm::OSELM, x::AbstractArray) = input_to_node(elm.neuron_type, x, elm.Wt, elm.d)
-hidden_out(elm::OSELM, x::AbstractArray) = elm.activation(input_to_node(elm, x))
-
 function fit!(elm::OSELM, x::AbstractArray, y::AbstractArray)
     # check if we are boosting or not
     S = hidden_out(elm, x)

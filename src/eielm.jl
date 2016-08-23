@@ -43,17 +43,6 @@ function EIELM{TA<:AbstractActivation,TV<:AbstractArray}(x::AbstractArray, y::TV
 end
 
 ## API methods
-isexact(elm::EIELM) = elm.p == elm.s
-
-function input_to_node(elm::EIELM, x::AbstractArray, Wt::AbstractMatrix, d)
-    x*Wt .+ d'
-end
-
-function hidden_out(elm::EIELM, x::AbstractArray, Wt::AbstractMatrix=elm.At, d=elm.b)
-    elm.activation(input_to_node(elm, x, Wt, d))
-end
-
-
 function fit!(elm::EIELM, x::AbstractArray, y::AbstractArray)
     # Step 1: Initialization
     L = 0

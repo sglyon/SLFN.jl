@@ -36,7 +36,7 @@ type ROSELM{TA<:AbstractActivation} <: AbstractSLFN
     end
 end
 
-function ROSELM{TA<:AbstractActivation}(x::AbstractArray, y::AbstractArray,
+function ROSELM{TA<:AbstractActivation}(x::AbstractArray, y::AbstractArray;
                                         activation::TA=Sigmoid(),
                                         s::Int=size(x, 1), maxit::Int=1000,
                                         c::Float64=2.5)
@@ -52,10 +52,6 @@ function ROSELM{TA<:AbstractActivation}(x::AbstractArray, y::AbstractArray,
 end
 
 ## API methods
-isexact(elm::ROSELM) = false
-input_to_node(elm::ROSELM, y::AbstractArray) = input_to_node(elm.neuron_type, y, elm.Wt, elm.d)
-sigmoid_mat(elm::ROSELM, y::AbstractArray) = elm.activation(input_to_node(elm, y))
-
 function fit!(elm::ROSELM, x::AbstractArray, y::AbstractVector)
     if elm.p_tot == 0
         local S
@@ -63,7 +59,7 @@ function fit!(elm::ROSELM, x::AbstractArray, y::AbstractVector)
             # initialization phase -- try to find invertible S matrix
             scale!(randn!(elm.Wt), elm.c)
             elm.d = -diag(x * elm.Wt)
-            S = sigmoid_mat(elm, x)
+            S = hidden_out(elm, x)
 
             if !(rank(S) < elm.s)
                 break
@@ -75,7 +71,7 @@ function fit!(elm::ROSELM, x::AbstractArray, y::AbstractVector)
         elm.M = pinv(S'S)
     else
         # post-init phase
-        S = sigmoid_mat(elm, x)
+        S = hidden_out(elm, x)
         elm.M -= elm.M * S' * inv(I + S*elm.M*S') * S * elm.M
         elm.v += elm.M * S' * (y - S*elm.v)
     end
@@ -87,7 +83,7 @@ end
 
 @compat function (elm::ROSELM)(x′::AbstractArray)
     @assert size(x′, 2) == elm.q "wrong input dimension"
-    return sigmoid_mat(elm, x′) * elm.v
+    return hidden_out(elm, x′) * elm.v
 end
 
 function Base.show{TA}(io::IO, elm::ROSELM{TA})

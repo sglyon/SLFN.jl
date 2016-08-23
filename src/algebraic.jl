@@ -18,6 +18,7 @@ type AlgebraicNetwork{TA<:AbstractActivation} <: AbstractSLFN
     activation::TA
     f::Float64
     maxit::Int
+    neuron_type::Linear
     Wt::Matrix{Float64}  # transpose of W matrix
     d::Vector{Float64}
     v::Vector{Float64}
@@ -26,7 +27,7 @@ type AlgebraicNetwork{TA<:AbstractActivation} <: AbstractSLFN
         Wt = Array(Float64, q, s)
         d = Array(Float64, s)
         v = Array(Float64, s)
-        new(p, q, s, 0, activation, f, maxit, Wt, d, v)
+        new(p, q, s, 0, activation, f, maxit, Linear(), Wt, d, v)
     end
 end
 
@@ -83,19 +84,14 @@ function AlgebraicNetwork(x::AbstractArray, y::AbstractArray,
 end
 
 ## API methods
-
 isexact(an::AlgebraicNetwork) = an.p == an.s
-input_to_node(an::AlgebraicNetwork, y::AbstractArray) = input_to_node(Linear(), y, an.Wt, an.d)
-sigmoid_mat(an::AlgebraicNetwork, y::AbstractArray) = an.activation(input_to_node(an, y))
-
 function fit!(an::AlgebraicNetwork, x::AbstractArray, y::AbstractVector)
-
     i = 0
     while true
         i += 1
         scale!(randn!(an.Wt), an.f)
         an.d = -diag(x * an.Wt)
-        S = sigmoid_mat(an, x)
+        S = hidden_out(an, x)
 
         if rank(S) < an.s && i < an.maxit
             an.n_train_it += 1
@@ -110,7 +106,7 @@ end
 
 @compat function (an::AlgebraicNetwork)(x′::AbstractArray)
     @assert size(x′, 2) == an.q "wrong input dimension"
-    return sigmoid_mat(an, x′) * an.v
+    return hidden_out(an, x′) * an.v
 end
 
 function Base.show{TA}(io::IO, an::AlgebraicNetwork{TA})

@@ -39,10 +39,6 @@ function ELM{TA<:AbstractActivation,
 end
 
 ## API methods
-isexact(elm::ELM) = false
-input_to_node(elm::ELM, x::AbstractArray) = input_to_node(elm.neuron_type, x, elm.Wt, elm.d)
-hidden_out(elm::ELM, x::AbstractArray) = elm.activation(input_to_node(elm, x))
-
 function fit!(elm::ELM, x::AbstractArray, y::AbstractArray)
     S = hidden_out(elm, x)
     # elm.v = pinv(S) * u
