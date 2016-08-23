@@ -21,6 +21,7 @@ include("elm.jl")
 include("oselm.jl")
 include("tselm.jl")
 include("eielm.jl")
+include("roselm.jl")
 include("algebraic.jl")
 
 
