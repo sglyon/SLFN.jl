@@ -2,7 +2,7 @@ __precompile__()
 
 module SLFN
 
-using Distances
+using Distances, Compat
 
 abstract AbstractSLFN
 
