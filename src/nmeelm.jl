@@ -66,26 +66,26 @@ function fit!(elm::NMEELM, x::AbstractArray, y::AbstractArray)
         n += 1
 
         # --- Step 2.b: find index of max error
-        j = indmax(E)
+        j = indmax(abs(E))
 
         # --- Step 2.c: Assign new center to be input x
         cn = xt[:, j]
         elm.Wt[:, n] = cn
 
         # --- Step 2.d: Initialze vₙ = Eⱼ
-        # vn = E[j]
+        vn = E[j]
 
         # --- Step 2.e: Prepare for NM simplex algorithm
         # define objective function
         function obj(σ)
-            num = 0.0
-            den = 0.0
-            for i in 1:elm.p
-                gn[i] = input_to_node(elm.neuron_type, view(xt, :, i), cn, σ)
-                num += E[i] * gn[i]
-                den += gn[i]*gn[i]
-            end
-            vn = num / den
+#             num = 0.0
+#             den = 0.0
+#             for i in 1:elm.p
+#                 gn[i] = input_to_node(elm.neuron_type, view(xt, :, i), cn, σ)
+#                 num += E[i] * gn[i]
+#                 den += gn[i]*gn[i]
+#             end
+#             vn = num / den
 
             sse = 0.0
             for i in 1:elm.p
@@ -96,10 +96,12 @@ function fit!(elm::NMEELM, x::AbstractArray, y::AbstractArray)
         end
 
         # --- Step 2.f: do `elm.k` iterations of NM (or call Optim??)
-        _foobar = rand()
-        Δx = [_foobar, 1-_foobar]
+        # _foobar = 0.5
+        # Δx = [_foobar, 1-_foobar]
+        Δx = [0.01, 1.0]
         σs, sses = ksimplex(Δx, elm, obj)
-        elm.d[n] = σn = σs[indmin(sses)]
+        σn = σs[1]
+        elm.d[n] = σn
         # @show j, E[j], σn
 
         # res = optimize(obj, 1e-12, 10.0, iterations=200)
@@ -265,3 +267,4 @@ function test_me(::Type{NMEELM})
     @show maxabs(nm(x) - y)
     nm
 end
+
