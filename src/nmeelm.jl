@@ -73,11 +73,20 @@ function fit!(elm::NMEELM, x::AbstractArray, y::AbstractArray)
         elm.Wt[:, n] = cn
 
         # --- Step 2.d: Initialze vₙ = Eⱼ
-        vn = E[j]
+        # vn = E[j]
 
         # --- Step 2.e: Prepare for NM simplex algorithm
         # define objective function
         function obj(σ)
+            num = 0.0
+            den = 0.0
+            for i in 1:elm.p
+                gn[i] = input_to_node(elm.neuron_type, view(xt, :, i), cn, σ)
+                num += E[i] * gn[i]
+                den += gn[i]*gn[i]
+            end
+            vn = num / den
+
             sse = 0.0
             for i in 1:elm.p
                 gi = input_to_node(elm.neuron_type, view(xt, :, i), cn, σ)
@@ -87,14 +96,15 @@ function fit!(elm::NMEELM, x::AbstractArray, y::AbstractArray)
         end
 
         # --- Step 2.f: do `elm.k` iterations of NM (or call Optim??)
-        σs, sses = ksimplex(5*rand(11), elm, obj)
+        _foobar = rand()
+        Δx = [_foobar, 1-_foobar]
+        σs, sses = ksimplex(Δx, elm, obj)
         elm.d[n] = σn = σs[indmin(sses)]
         # @show j, E[j], σn
 
         # res = optimize(obj, 1e-12, 10.0, iterations=200)
         # @show j, E[j], Optim.minimum(res), Optim.minimizer(res)
         # elm.d[n] = σn = Optim.minimizer(res)
-
 
         # --- Step 2.g: Calculate vn
         num = 0.0
@@ -218,14 +228,14 @@ function singlesimplex!(x::AbstractVector, fx::AbstractVector, elm::NMEELM, f::F
         # If between last 2 points then use outside contraction
         xoc = _ocontract(elm, xhat, xr)
         fxoc = f(xoc)
-        fxoc < fxr ? replace_last_sorted!(x, fx, xoc, fxoc) : shrink_all!(x, fx)
+        fxoc < fxr ? replace_last_sorted!(x, fx, xoc, fxoc) : shrink_all!(x, fx, elm, f)
     else
         # If larger than last point then use inside contraction
         xic = _icontract(elm, xhat, xnp1)
         fxic = f(xic)
 
         # If better than worst point, replace it
-        fxic < fxnp1 ? replace_last_sorted!(x, fx, xic, fxic) : shrink_all!(x, fx)
+        fxic < fxnp1 ? replace_last_sorted!(x, fx, xic, fxic) : shrink_all!(x, fx, elm, f)
     end
 
     return nothing
