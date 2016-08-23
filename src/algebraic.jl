@@ -106,7 +106,7 @@ function fit!(an::AlgebraicNetwork, x::AbstractArray, y::AbstractVector,
 
 end
 
-function (an::AlgebraicNetwork)(x′::AbstractArray)
+@compat function (an::AlgebraicNetwork)(x′::AbstractArray)
     @assert size(x′, 2) == an.q "wrong input dimension"
     return sigmoid_mat(an, x′) * an.v
 end

@@ -174,7 +174,7 @@ function fit!(elm::TSELM, x::AbstractArray, t::AbstractVector)
     elm
 end
 
-function (elm::TSELM)(y′::AbstractArray)
+@compat function (elm::TSELM)(y′::AbstractArray)
     @assert size(y′, 2) == elm.q "wrong input dimension"
     return hidden_out(elm, y′, elm.At, elm.b) * elm.β
 end
