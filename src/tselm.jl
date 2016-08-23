@@ -12,19 +12,19 @@ http://linkinghub.elsevier.com/retrieve/pii/S0925231210003401
 """
 type TSELM{TA<:AbstractActivation,TN<:AbstractNodeInput,TV<:AbstractArray{Float64}} <: AbstractSLFN
     p::Int  # Number of training points
-    q::Int  # Dimensionality of function domain
+    q::Int  # Dimensionality of function domai
+    s::Int  # maximum number of neurons
     ngroup::Int  # number of groups
     npg::Int  # nodes per group
-    Lmax::Int  # maximum number of neurons
     activation::TA
     neuron_type::TN
     At::Matrix{Float64}
     b::Vector{Float64}
     β::TV
 
-    function TSELM(p::Int, q::Int, ngroup::Int, npg::Int, Lmax::Int, activation::TA,
+    function TSELM(p::Int, q::Int, s::Int, ngroup::Int, npg::Int, activation::TA,
                    neuron_type::TN)
-        new(p, q, ngroup, npg, Lmax, activation, neuron_type)
+        new(p, q, s, ngroup, npg, activation, neuron_type)
     end
 end
 
@@ -32,13 +32,13 @@ end
 function TSELM{TA<:AbstractActivation,
                TN<:AbstractNodeInput,
                TV<:AbstractArray}(x::AbstractArray, y::TV; activation::TA=Sigmoid(),
-                                  neuron_type::TN=Linear(), Lmax::Int=size(x, 1),
+                                  neuron_type::TN=Linear(), s::Int=size(x, 1),
                                   ngroup::Int=5,
                                   npg::Int=ceil(Int, size(x, 1)/10))
     q = size(x, 2)  # dimensionality of function domain
     p = size(x, 1)  # number of training points
-    Lmax = min(p, Lmax)  # can't have more neurons than obs
-    out = TSELM{TA,TN,TV}(p, q, ngroup, npg, Lmax, activation, neuron_type)
+    s = min(p, s)  # can't have more neurons than obs
+    out = TSELM{TA,TN,TV}(p, q, s, ngroup, npg, activation, neuron_type)
     fit!(out, x, y)
 end
 
@@ -67,10 +67,10 @@ function forward_selection!(elm::TSELM, x::AbstractArray, y::AbstractVector)
     # initialize
     L = 0
     R = eye(N, N)
-    A = zeros(elm.q, elm.Lmax + elm.npg)
-    b = zeros(elm.Lmax + elm.npg)
+    A = zeros(elm.q, elm.s + elm.npg)
+    b = zeros(elm.s + elm.npg)
 
-    while L < elm.Lmax
+    while L < elm.s
         L += elm.npg
         inds = (L-elm.npg)+1:L
 
@@ -112,7 +112,7 @@ function forward_selection!(elm::TSELM, x::AbstractArray, y::AbstractVector)
     # Step 6: Find the optimal number of neurons pstar
     pstar = 0
     fpe_min = Inf
-    for p in elm.ngroup:elm.ngroup:elm.Lmax
+    for p in elm.ngroup:elm.ngroup:elm.s
         Hp = hidden_out(elm, validate_x, A[:, 1:p], b[1:p])
         βp = Hp \ validate_y
         SSEp = norm(validate_y - Hp*βp, 2)
@@ -190,7 +190,7 @@ function Base.show{TA,TN}(io::IO, elm::TSELM{TA,TN})
       - Algorithm parameters:
           - $(elm.ngroup) trials per group
           - $(elm.npg) neurons per group
-          - $(elm.Lmax) max neurons
+          - $(elm.s) max neurons
     """
     print(io, s)
 end
