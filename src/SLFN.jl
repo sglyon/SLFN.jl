@@ -3,6 +3,7 @@ __precompile__()
 module SLFN
 
 using Distances, Compat
+using Compat: view
 
 abstract AbstractSLFN
 

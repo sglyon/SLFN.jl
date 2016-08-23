@@ -46,7 +46,7 @@ function fit!(elm::ELM, x::AbstractArray, y::AbstractArray)
     elm
 end
 
-function (elm::ELM)(x′::AbstractArray)
+@compat function (elm::ELM)(x′::AbstractArray)
     @assert size(x′, 2) == elm.q "wrong input dimension"
     return hidden_out(elm, x′) * elm.v
 end

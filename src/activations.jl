@@ -13,7 +13,7 @@ activate(::Tanh, x) = tanh(x)
 activate(::Identity, x) = x
 
 for T in subtypes(AbstractActivation)
-    @eval (ta::$(T))(x) = activate(ta, x)
+    @eval @compat (ta::$(T))(x) = activate(ta, x)
 end
 
 deriv(::Sigmoid, x) = exp(-x) ./((1 + exp(-x)).^2)
