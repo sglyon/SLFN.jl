@@ -24,7 +24,6 @@ type TSELM{TA<:AbstractActivation,TN<:AbstractNodeInput,TV<:AbstractArray{Float6
 
     function TSELM(p::Int, q::Int, ngroup::Int, npg::Int, Lmax::Int, activation::TA,
                    neuron_type::TN)
-        WARNINGS[1] && warn("This routine is experimental!!")
         new(p, q, ngroup, npg, Lmax, activation, neuron_type)
     end
 end
@@ -32,7 +31,7 @@ end
 
 function TSELM{TA<:AbstractActivation,
                TN<:AbstractNodeInput,
-               TV<:AbstractArray}(x::AbstractArray, t::TV; activation::TA=Sigmoid(),
+               TV<:AbstractArray}(x::AbstractArray, y::TV; activation::TA=Sigmoid(),
                                   neuron_type::TN=Linear(), Lmax::Int=size(x, 1),
                                   ngroup::Int=5,
                                   npg::Int=ceil(Int, size(x, 1)/10))
@@ -40,7 +39,7 @@ function TSELM{TA<:AbstractActivation,
     p = size(x, 1)  # number of training points
     Lmax = min(p, Lmax)  # can't have more neurons than obs
     out = TSELM{TA,TN,TV}(p, q, ngroup, npg, Lmax, activation, neuron_type)
-    fit!(out, x, t)
+    fit!(out, x, y)
 end
 
 ## helper methods
@@ -58,10 +57,10 @@ function hidden_out(elm::TSELM, x::AbstractArray, Wt::AbstractMatrix,
 end
 
 
-function forward_selection!(elm::TSELM, x::AbstractArray, t::AbstractVector)
+function forward_selection!(elm::TSELM, x::AbstractArray, y::AbstractVector)
     # split data sets
     train_x, validate_x = _split_data(x)
-    train_t, validate_t = _split_data(t)
+    train_y, validate_y = _split_data(y)
     N = size(train_x, 1)
     N_validate = size(validate_x, 1)
 
@@ -94,7 +93,7 @@ function forward_selection!(elm::TSELM, x::AbstractArray, t::AbstractVector)
             # TODO: sometimes (δHi'R*δHi) is singular. I can loop over above until
             #       it works
             ΔRi = (R*δHi)*((δHi'R*δHi) \ (δHi'R'))
-            ΔJi = dot(train_t, ΔRi*train_t)
+            ΔJi = dot(train_y, ΔRi*train_y)
 
             # Step 4: keep this group if it is the best we've seen so far
             if ΔJi > ΔJ
@@ -115,8 +114,8 @@ function forward_selection!(elm::TSELM, x::AbstractArray, t::AbstractVector)
     fpe_min = Inf
     for p in elm.ngroup:elm.ngroup:elm.Lmax
         Hp = hidden_out(elm, validate_x, A[:, 1:p], b[1:p])
-        βp = Hp \ validate_t
-        SSEp = norm(validate_t - Hp*βp, 2)
+        βp = Hp \ validate_y
+        SSEp = norm(validate_y - Hp*βp, 2)
         fpe = SSEp/N_validate * (N_validate+p)/(N_validate-p)
 
         if fpe < fpe_min
@@ -130,12 +129,12 @@ function forward_selection!(elm::TSELM, x::AbstractArray, t::AbstractVector)
     elm.At = A[:, 1:pstar]
     elm.b = b[1:pstar]
     H = hidden_out(elm, x, elm.At, elm.b)
-    elm.β = H \ t
+    elm.β = H \ y
 
     elm, H
 end
 
-function backward_elimination!(elm::TSELM, x::AbstractArray, t::AbstractVector,
+function backward_elimination!(elm::TSELM, x::AbstractArray, y::AbstractVector,
                                H::AbstractMatrix)
     # TODO: come back to this
     return
@@ -168,15 +167,15 @@ function backward_elimination!(elm::TSELM, x::AbstractArray, t::AbstractVector,
 
 end
 
-function fit!(elm::TSELM, x::AbstractArray, t::AbstractVector)
-    elm, H = forward_selection!(elm, x, t)
-    backward_elimination!(elm, x, t, H)
+function fit!(elm::TSELM, x::AbstractArray, y::AbstractVector)
+    elm, H = forward_selection!(elm, x, y)
+    backward_elimination!(elm, x, y, H)
     elm
 end
 
-function (elm::TSELM)(y′::AbstractArray)
-    @assert size(y′, 2) == elm.q "wrong input dimension"
-    return hidden_out(elm, y′, elm.At, elm.b) * elm.β
+function (elm::TSELM)(x′::AbstractArray)
+    @assert size(x′, 2) == elm.q "wrong input dimension"
+    return hidden_out(elm, x′, elm.At, elm.b) * elm.β
 end
 
 function Base.show{TA,TN}(io::IO, elm::TSELM{TA,TN})

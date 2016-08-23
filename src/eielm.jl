@@ -22,6 +22,7 @@ type EIELM{TA<:AbstractActivation,TV<:AbstractArray{Float64}} <: AbstractSLFN
     β::TV
 
     function EIELM(p::Int, q::Int, Lmax::Int, k::Int, ϵ::Float64, activation::TA)
+        WARNINGS[1] && warn("This is experimental and doesn't work properly")
         At = Array(Float64, q, Lmax)  # will chop later
         b = Array(Float64, Lmax)      # ditto
         β = Array(Float64, Lmax)      # ditto
@@ -30,7 +31,7 @@ type EIELM{TA<:AbstractActivation,TV<:AbstractArray{Float64}} <: AbstractSLFN
 end
 
 
-function EIELM{TA<:AbstractActivation,TV<:AbstractArray}(x::AbstractArray, t::TV;
+function EIELM{TA<:AbstractActivation,TV<:AbstractArray}(x::AbstractArray, y::TV;
                                                          activation::TA=SoftPlus(),
                                                          Lmax::Int=size(x, 1), k::Int=20,
                                                          ϵ::Float64=1e-6)
@@ -38,7 +39,7 @@ function EIELM{TA<:AbstractActivation,TV<:AbstractArray}(x::AbstractArray, t::TV
     p = size(x, 1)  # number of training points
     Lmax = min(Lmax, p)
     out = EIELM{TA,TV}(p, q, Lmax, k, ϵ, activation)
-    fit!(out, x, t)
+    fit!(out, x, y)
 end
 
 ## API methods
@@ -53,10 +54,10 @@ function hidden_out(elm::EIELM, x::AbstractArray, Wt::AbstractMatrix=elm.At, d=e
 end
 
 
-function fit!(elm::EIELM, x::AbstractArray, t::AbstractArray)
+function fit!(elm::EIELM, x::AbstractArray, y::AbstractArray)
     # Step 1: Initialization
     L = 0
-    E = copy(t)
+    E = copy(y)
     min_Ei = copy(E)
 
     # Step 2: learning
