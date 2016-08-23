@@ -30,7 +30,7 @@ type AlgebraicNetwork{TA<:AbstractActivation} <: AbstractSLFN
     end
 end
 
-function AlgebraicNetwork{TA<:AbstractActivation}(x::AbstractArray, y::AbstractArray,
+function AlgebraicNetwork{TA<:AbstractActivation}(x::AbstractArray, y::AbstractArray;
                                                   activation::TA=Sigmoid(),
                                                   s::Int=size(x, 1), f::Float64=4.5, maxit::Int=1000)
     p = size(x, 1)
@@ -46,7 +46,7 @@ end
 
 # algorithm that includes gradient information
 function AlgebraicNetwork(x::AbstractArray, y::AbstractArray,
-                          c::AbstractArray, activatoin::AbstractActivation=Sigmoid,
+                          c::AbstractArray; activation::AbstractActivation=Sigmoid,
                           s::Int=size(y, 1), f::Float64=5.0,
                           tol::Float64=1e-5, maxit::Int=1000)
     e = size(c, 1)

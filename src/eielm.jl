@@ -30,7 +30,7 @@ type EIELM{TA<:AbstractActivation,TV<:AbstractArray{Float64}} <: AbstractSLFN
 end
 
 
-function EIELM{TA<:AbstractActivation,TV<:AbstractArray}(x::AbstractArray, t::TV,
+function EIELM{TA<:AbstractActivation,TV<:AbstractArray}(x::AbstractArray, t::TV;
                                                          activation::TA=SoftPlus(),
                                                          Lmax::Int=size(x, 1), k::Int=20,
                                                          ϵ::Float64=1e-6)

@@ -29,7 +29,7 @@ end
 
 function ELM{TA<:AbstractActivation,
              TN<:AbstractNodeInput,
-             TV<:AbstractArray}(y::AbstractArray, u::TV, activation::TA=SoftPlus(),
+             TV<:AbstractArray}(y::AbstractArray, u::TV; activation::TA=SoftPlus(),
                                 neuron_type::TN=Linear(), s::Int=size(y, 1))
     q = size(y, 2)  # dimensionality of function domain
     p = size(y, 1)  # number of training points

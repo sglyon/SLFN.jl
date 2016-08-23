@@ -32,7 +32,7 @@ end
 
 function TSELM{TA<:AbstractActivation,
                TN<:AbstractNodeInput,
-               TV<:AbstractArray}(x::AbstractArray, t::TV, activation::TA=Sigmoid(),
+               TV<:AbstractArray}(x::AbstractArray, t::TV; activation::TA=Sigmoid(),
                                   neuron_type::TN=Linear(), Lmax::Int=size(x, 1),
                                   ngroup::Int=5,
                                   npg::Int=ceil(Int, size(x, 1)/10))

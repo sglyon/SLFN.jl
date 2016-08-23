@@ -40,7 +40,7 @@ type NMEELM{TV<:AbstractArray{Float64}} <: AbstractSLFN
     end
 end
 
-function NMEELM{TV<:AbstractArray}(x::AbstractArray, y::TV, s::Int=size(y, 1),
+function NMEELM{TV<:AbstractArray}(x::AbstractArray, y::TV; s::Int=size(y, 1),
                                    ϵ::Float64=1e-6, ρ::Float64=1.0, χ::Float64=2.0,
                                    γ::Float64=1/2, α::Float64=1/2, k::Int=7)
     q = size(x, 2)  # dimensionality of function domain
