@@ -37,8 +37,8 @@ function OSELM{TA<:AbstractActivation,
                TN<:AbstractNodeInput,
                TV<:AbstractArray}(x::AbstractArray, y::TV; activation::TA=SoftPlus(),
                                   neuron_type::TN=Linear(), s::Int=size(x, 1))
-    q = size(y, 2)  # dimensionality of function domain
-    p = size(y, 1)  # number of training points
+    q = size(x, 2)  # dimensionality of function domain
+    p = size(x, 1)  # number of training points
     s = min(p, s)   # Can't have more neurons than training points
     out = OSELM{TA,TN,TV}(p, q, s, activation, neuron_type)
     fit!(out, x, y)
