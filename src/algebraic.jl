@@ -16,19 +16,22 @@ type AlgebraicNetwork{TA<:AbstractActivation} <: AbstractSLFN
     s::Int  # number of neurons
     n_train_it::Int  # number of training iterations
     activation::TA
+    f::Float64
+    maxit::Int
+    neuron_type::Linear
     Wt::Matrix{Float64}  # transpose of W matrix
     d::Vector{Float64}
     v::Vector{Float64}
 
-    function AlgebraicNetwork(p::Int, q::Int, s::Int, activation::TA)
+    function AlgebraicNetwork(p::Int, q::Int, s::Int, activation::TA, f::Float64, maxit::Int)
         Wt = Array(Float64, q, s)
         d = Array(Float64, s)
         v = Array(Float64, s)
-        new(p, q, s, 0, activation, Wt, d, v)
+        new(p, q, s, 0, activation, f, maxit, Linear(), Wt, d, v)
     end
 end
 
-function AlgebraicNetwork{TA<:AbstractActivation}(x::AbstractArray, y::AbstractArray,
+function AlgebraicNetwork{TA<:AbstractActivation}(x::AbstractArray, y::AbstractArray;
                                                   activation::TA=Sigmoid(),
                                                   s::Int=size(x, 1), f::Float64=4.5, maxit::Int=1000)
     p = size(x, 1)
@@ -37,14 +40,14 @@ function AlgebraicNetwork{TA<:AbstractActivation}(x::AbstractArray, y::AbstractA
     @assert size(y, 1) == p "x and y must have same number of observations"
 
     s = min(s, p)
-    out = AlgebraicNetwork{TA}(p, q, s, activation)
-    fit!(out, x, y, f, maxit)
+    out = AlgebraicNetwork{TA}(p, q, s, activation, f, maxit)
+    fit!(out, x, y)
     out
 end
 
 # algorithm that includes gradient information
 function AlgebraicNetwork(x::AbstractArray, y::AbstractArray,
-                          c::AbstractArray, activatoin::AbstractActivation=Sigmoid,
+                          c::AbstractArray; activation::AbstractActivation=Sigmoid,
                           s::Int=size(y, 1), f::Float64=5.0,
                           tol::Float64=1e-5, maxit::Int=1000)
     e = size(c, 1)
@@ -52,7 +55,7 @@ function AlgebraicNetwork(x::AbstractArray, y::AbstractArray,
     @assert size(c, 2) == p "need one gradient column for each training sample"
 
     # do initial fit
-    out = AlgebraicNetwork(x, y, activation; s=s, f=f, maxit=maxit)
+    out = AlgebraicNetwork(x, y, activation, s, f, maxit)
 
     N = input_to_node(out, x)
 
@@ -81,21 +84,16 @@ function AlgebraicNetwork(x::AbstractArray, y::AbstractArray,
 end
 
 ## API methods
-
 isexact(an::AlgebraicNetwork) = an.p == an.s
-input_to_node(an::AlgebraicNetwork, y::AbstractArray) = y*an.Wt .+ an.d'
-sigmoid_mat(an::AlgebraicNetwork, y::AbstractArray) = an.activation(input_to_node(an, y))
-
-function fit!(an::AlgebraicNetwork, x::AbstractArray, y::AbstractVector,
-              f::Float64=4.5, maxit::Int=1000)
-    for i in 1:maxit
-        scale!(randn!(an.Wt), f)
+function fit!(an::AlgebraicNetwork, x::AbstractArray, y::AbstractVector)
+    i = 0
+    while true
+        i += 1
+        scale!(randn!(an.Wt), an.f)
         an.d = -diag(x * an.Wt)
-        S = sigmoid_mat(an, x)
+        S = hidden_out(an, x)
 
-        the_rank = rank(S)
-
-        if rank(S) < an.s && i < maxit
+        if rank(S) < an.s && i < an.maxit
             an.n_train_it += 1
             continue
         else
@@ -108,7 +106,7 @@ end
 
 @compat function (an::AlgebraicNetwork)(x′::AbstractArray)
     @assert size(x′, 2) == an.q "wrong input dimension"
-    return sigmoid_mat(an, x′) * an.v
+    return hidden_out(an, x′) * an.v
 end
 
 function Base.show{TA}(io::IO, an::AlgebraicNetwork{TA})
