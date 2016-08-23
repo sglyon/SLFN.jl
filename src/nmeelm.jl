@@ -29,15 +29,15 @@ type NMEELM{TV<:AbstractArray{Float64}} <: AbstractSLFN
     d::Vector{Float64}
     activation::Identity
     neuron_type::RBF{Gaussian}
-    β::TV
+    v::TV
 
     function NMEELM(p::Int, q::Int, s::Int, ϵ::Float64,
                     ρ::Float64, χ::Float64, γ::Float64, α::Float64,
                     k::Int)
         Wt = 2*rand(q, s) - 1
         d = rand(s)
-        β = TV(s)
-        new(p, q, s, ϵ, ρ, χ, γ, α, k, Wt, d, Identity(), RBF(Gaussian), β)
+        v = TV(s)
+        new(p, q, s, ϵ, ρ, χ, γ, α, k, Wt, d, Identity(), RBF(Gaussian), v)
     end
 end
 
@@ -52,17 +52,13 @@ function NMEELM{TV<:AbstractArray}(x::AbstractArray, y::TV; s::Int=size(y, 1),
 end
 
 ## API methods
-isexact(elm::NMEELM) = false
-input_to_node(elm::NMEELM, x::AbstractArray) = input_to_node(elm.neuron_type, x, elm.Wt, elm.d)
-hidden_out(elm::NMEELM, x::AbstractArray) = elm.activation(input_to_node(elm, x))
-
 function fit!(elm::NMEELM, x::AbstractArray, y::AbstractArray)
     # ------- Step 1: initialize
     n = 0
     E = copy(y)
     err = Inf
     xt = x'
-    gn = Array(Float64, elm.p) # memory for array used to update β and E
+    gn = Array(Float64, elm.p) # memory for array used to update v and E
 
     # ------- Step 2: Learning
     while n < elm.s && err > elm.ϵ
@@ -76,8 +72,8 @@ function fit!(elm::NMEELM, x::AbstractArray, y::AbstractArray)
         cn = xt[:, j]
         elm.Wt[:, n] = cn
 
-        # --- Step 2.d: Initialze βₙ = Eⱼ
-        βn = E[j]
+        # --- Step 2.d: Initialze vₙ = Eⱼ
+        vn = E[j]
 
         # --- Step 2.e: Prepare for NM simplex algorithm
         # define objective function
@@ -85,21 +81,22 @@ function fit!(elm::NMEELM, x::AbstractArray, y::AbstractArray)
             sse = 0.0
             for i in 1:elm.p
                 gi = input_to_node(elm.neuron_type, view(xt, :, i), cn, σ)
-                sse += (E[i] - βn * gi)^2
+                sse += (E[i] - vn * gi)^2
             end
             sse
         end
 
         # --- Step 2.f: do `elm.k` iterations of NM (or call Optim??)
-        σs, sses = ksimplex(30*rand(7), elm, obj)
+        σs, sses = ksimplex(5*rand(11), elm, obj)
         elm.d[n] = σn = σs[indmin(sses)]
-        @show j, E[j], σn
+        # @show j, E[j], σn
+
         # res = optimize(obj, 1e-12, 10.0, iterations=200)
         # @show j, E[j], Optim.minimum(res), Optim.minimizer(res)
         # elm.d[n] = σn = Optim.minimizer(res)
 
 
-        # --- Step 2.g: Calculate βn
+        # --- Step 2.g: Calculate vn
         num = 0.0
         den = 0.0
         for i in 1:elm.p
@@ -107,20 +104,20 @@ function fit!(elm::NMEELM, x::AbstractArray, y::AbstractArray)
             num += E[i] * gn[i]
             den += gn[i]*gn[i]
         end
-        elm.β[n] = num / den
+        elm.v[n] = num / den
 
         # --- Step 2.h: Update E vector and rmse
         err = 0.0
         for i in 1:elm.p
-            E[i] -= elm.β[n]*gn[i]
+            E[i] -= elm.v[n]*gn[i]
             err += E[i] * E[i]
         end
         err = sqrt(err/elm.p)
 
     end
 
-    # ------- Step 3: chop β, Wt, and d at n
-    elm.β = elm.β[1:n]
+    # ------- Step 3: chop v, Wt, and d at n
+    elm.v = elm.v[1:n]
     elm.d = elm.d[1:n]
     elm.Wt = elm.Wt[:, 1:n]
 
@@ -131,7 +128,7 @@ end
 
 @compat function (elm::NMEELM)(x′::AbstractArray)
     @assert size(x′, 2) == elm.q "wrong input dimension"
-    return hidden_out(elm, x′) * elm.β
+    return hidden_out(elm, x′) * elm.v
 end
 
 function Base.show{TA}(io::IO, elm::NMEELM{TA})
@@ -140,7 +137,7 @@ function Base.show{TA}(io::IO, elm::NMEELM{TA})
     NMEELM with
       - Identity Activation function
       - $(elm.q) input dimension(s)
-      - $(length(elm.β)) RBF{Gaussian} neuron(s)
+      - $(length(elm.v)) RBF{Gaussian} neuron(s)
       - $(elm.p) training point(s)
     """
     print(io, s)
@@ -248,4 +245,13 @@ function ksimplex(x::AbstractVector, elm::NMEELM, f::Function)
     end
 
     return xout, fxout
+end
+
+function test_me(::Type{NMEELM})
+    x = linspace(0, 1, 20) + 0.1*randn(20)
+    y = sin(6*x)
+    nm = NMEELM(x, y, s=15)
+
+    @show maxabs(nm(x) - y)
+    nm
 end
