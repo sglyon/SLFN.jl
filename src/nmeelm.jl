@@ -32,17 +32,18 @@ type NMEELM{TV<:AbstractArray{Float64}} <: AbstractSLFN
     β::TV
 
     function NMEELM(p::Int, q::Int, s::Int, ϵ::Float64,
-                    ρ::Float64, χ::Float64, γ::Float64, α::Float64)
+                    ρ::Float64, χ::Float64, γ::Float64, α::Float64,
+                    k::Int)
         Wt = 2*rand(q, s) - 1
         d = rand(s)
         β = TV(s)
-        new(p, q, s, ϵ, ρ, χ, γ, α, Wt, d, Identity(), RBF(Gaussian), β)
+        new(p, q, s, ϵ, ρ, χ, γ, α, k, Wt, d, Identity(), RBF(Gaussian), β)
     end
 end
 
 function NMEELM{TV<:AbstractArray}(x::AbstractArray, y::TV, s::Int=size(y, 1),
                                    ϵ::Float64=1e-6, ρ::Float64=1.0, χ::Float64=2.0,
-                                   γ::Float64=1/2, α::Float64=1/2, k::Int=7)
+                                   γ::Float64=1/2, α::Float64=1/2, k::Int=10)
     q = size(x, 2)  # dimensionality of function domain
     p = size(y, 1)  # number of training points
     s = min(p, s)   # Can't have more neurons than training points
@@ -54,6 +55,96 @@ end
 isexact(elm::NMEELM) = false
 input_to_node(elm::NMEELM, x::AbstractArray) = input_to_node(elm.neuron_type, x, elm.Wt, elm.d)
 hidden_out(elm::NMEELM, x::AbstractArray) = elm.activation(input_to_node(elm, x))
+
+function fit!(elm::NMEELM, x::AbstractArray, y::AbstractArray)
+    # ------- Step 1: initialize
+    n = 0
+    E = copy(y)
+    err = Inf
+    xt = x'
+    gn = Array(Float64, elm.p) # memory for array used to update β and E
+
+    # ------- Step 2: Learning
+    while n < elm.s && err > elm.ϵ
+        # --- Step 2.a: Increase n
+        n += 1
+
+        # --- Step 2.b: find index of max error
+        j = indmax(E)
+
+        # --- Step 2.c: Assign new center to be input x
+        cn = xt[:, j]
+        elm.Wt[:, n] = cn
+
+        # --- Step 2.d: Initialze βₙ = Eⱼ
+        βn = E[j]
+
+        # --- Step 2.e: Prepare for NM simplex algorithm
+        # define objective function
+        function obj(σ)
+            sse = 0.0
+            for i in 1:elm.p
+                gi = input_to_node(elm.neuron_type, view(xt, :, i), cn, σ)
+                sse += (E[i] - βn * gi)^2
+            end
+            sse
+        end
+
+        # --- Step 2.f: do `elm.k` iterations of NM (or call Optim??)
+        σs, sses = ksimplex(30*rand(7), elm, obj)
+        elm.d[n] = σn = σs[indmin(sses)]
+        @show j, E[j], σn
+        # res = optimize(obj, 1e-12, 10.0, iterations=200)
+        # @show j, E[j], Optim.minimum(res), Optim.minimizer(res)
+        # elm.d[n] = σn = Optim.minimizer(res)
+
+
+        # --- Step 2.g: Calculate βn
+        num = 0.0
+        den = 0.0
+        for i in 1:elm.p
+            gn[i] = input_to_node(elm.neuron_type, view(xt, :, i), cn, σn)
+            num += E[i] * gn[i]
+            den += gn[i]*gn[i]
+        end
+        elm.β[n] = num / den
+
+        # --- Step 2.h: Update E vector and rmse
+        err = 0.0
+        for i in 1:elm.p
+            E[i] -= elm.β[n]*gn[i]
+            err += E[i] * E[i]
+        end
+        err = sqrt(err/elm.p)
+
+    end
+
+    # ------- Step 3: chop β, Wt, and d at n
+    elm.β = elm.β[1:n]
+    elm.d = elm.d[1:n]
+    elm.Wt = elm.Wt[:, 1:n]
+
+    # return
+    elm
+
+end
+
+@compat function (elm::NMEELM)(x′::AbstractArray)
+    @assert size(x′, 2) == elm.q "wrong input dimension"
+    return hidden_out(elm, x′) * elm.β
+end
+
+function Base.show{TA}(io::IO, elm::NMEELM{TA})
+    s =
+    """
+    NMEELM with
+      - Identity Activation function
+      - $(elm.q) input dimension(s)
+      - $(length(elm.β)) RBF{Gaussian} neuron(s)
+      - $(elm.p) training point(s)
+    """
+    print(io, s)
+end
 
 ## Nelder-Mead -- Simplex functions
 @inline _centroid(x::AbstractArray) = sum(x[1:end-1]) / (length(x) - 1)
@@ -130,14 +221,14 @@ function singlesimplex!(x::AbstractVector, fx::AbstractVector, elm::NMEELM, f::F
         # If between last 2 points then use outside contraction
         xoc = _ocontract(elm, xhat, xr)
         fxoc = f(xoc)
-        fxoc < fxr ? replace_last_sorted(x, fx, xoc, fxoc) : shrink_all!(x, fx)
+        fxoc < fxr ? replace_last_sorted!(x, fx, xoc, fxoc) : shrink_all!(x, fx)
     else
         # If larger than last point then use inside contraction
         xic = _icontract(elm, xhat, xnp1)
         fxic = f(xic)
 
         # If better than worst point, replace it
-        fxic < fnp1 ? replace_last_sorted(x, fx, xic, fxic) : shrink_all!(x, fx)
+        fxic < fxnp1 ? replace_last_sorted!(x, fx, xic, fxic) : shrink_all!(x, fx)
     end
 
     return nothing
@@ -148,71 +239,13 @@ function ksimplex(x::AbstractVector, elm::NMEELM, f::Function)
     fxout = map(f, x)
 
     # Sort
-    perm_2_sort = sortperm(fx)
+    perm_2_sort = sortperm(fxout)
     xout = x[perm_2_sort]
-    copy!(fxout, fxout[perm_2_sort])
+    fxout = fxout[perm_2_sort]
 
-    for i=1:elm.k
+    for _ in 1:elm.k
         singlesimplex!(xout, fxout, elm, f)
     end
 
     return xout, fxout
-end
-
-function fit!(elm::NMEELM, x::AbstractArray, y::AbstractArray)
-    # ------- Step 1: initialize
-    n = 0
-    E = copy(y)
-    err = Inf
-    xt = x'
-
-    # ------- Step 2: Learning
-    while n < elm.s && err > elm.ϵ
-        # --- Step 2.a: Increase n
-        n += 1
-
-        # --- Step 2.b: find index of max error
-        j = indmax(E)
-
-        # --- Step 2.c: Assign new center to be input x
-        cn = xt[:, j]
-        elm.Wt[:, n] = cn
-
-        # --- Step 2.d: Initialze βₙ = Eⱼ
-        βn = E[j]
-
-        # --- Step 2.e: Do Nelder-Mead simplex algorithm
-        # define objective function
-        function obj(σ)
-            sse = 0.0
-            for i in 1:elm.p
-                gi = input_to_node(elm.neuron_type, view(xt, :, i), cn, σ)
-                sse += (E[i] - βn * gi)^2
-            end
-            sse
-        end
-
-        # call to elm.k nm simplex iterations (or call Optim??)
-        # TODO: pick up here
-
-
-    end
-
-end
-
-@compat function (elm::NMEELM)(x′::AbstractArray)
-    @assert size(x′, 2) == elm.q "wrong input dimension"
-    return hidden_out(elm, x′) * elm.v
-end
-
-function Base.show{TA}(io::IO, elm::NMEELM{TA})
-    s =
-    """
-    NMEELM with
-      - Identity Activation function
-      - $(elm.q) input dimension(s)
-      - RBF{Gaussian} neuron(s)
-      - $(elm.p) training point(s)
-    """
-    print(io, s)
 end

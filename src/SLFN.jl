@@ -2,7 +2,8 @@ __precompile__()
 
 module SLFN
 
-using Distances, Compat
+using Distances, Compat, Optim
+using Compat: view
 
 abstract AbstractSLFN
 
@@ -21,6 +22,7 @@ include("elm.jl")
 include("tselm.jl")
 include("eielm.jl")
 include("algebraic.jl")
+include("nmeelm.jl")
 
 
 end # module
