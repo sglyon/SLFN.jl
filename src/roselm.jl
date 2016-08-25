@@ -81,11 +81,6 @@ function fit!(elm::ROSELM, x::AbstractArray, y::AbstractVector)
 
 end
 
-@compat function (elm::ROSELM)(x′::AbstractArray)
-    @assert size(x′, 2) == elm.q "wrong input dimension"
-    return hidden_out(elm, x′) * elm.v
-end
-
 function Base.show{TA}(io::IO, elm::ROSELM{TA})
     s =
     """

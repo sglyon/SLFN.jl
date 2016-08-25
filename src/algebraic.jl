@@ -33,7 +33,9 @@ end
 
 function AlgebraicNetwork{TA<:AbstractActivation}(x::AbstractArray, y::AbstractArray;
                                                   activation::TA=Sigmoid(),
-                                                  s::Int=size(x, 1), f::Float64=4.5, maxit::Int=1000)
+                                                  s::Int=size(x, 1), f::Float64=4.5,
+                                                  maxit::Int=1000,
+                                                  reg::AbstractLinReg=LSSVD())
     p = size(x, 1)
     q = size(x, 2)
 
@@ -41,7 +43,7 @@ function AlgebraicNetwork{TA<:AbstractActivation}(x::AbstractArray, y::AbstractA
 
     s = min(s, p)
     out = AlgebraicNetwork{TA}(p, q, s, activation, f, maxit)
-    fit!(out, x, y)
+    fit!(out, x, y, reg)
     out
 end
 
@@ -85,11 +87,12 @@ end
 
 ## API methods
 isexact(an::AlgebraicNetwork) = an.p == an.s
-function fit!(an::AlgebraicNetwork, x::AbstractArray, y::AbstractVector)
+function fit!(an::AlgebraicNetwork, x::AbstractArray, y::AbstractVector, reg::AbstractLinReg)
     i = 0
     while true
         i += 1
         scale!(randn!(an.Wt), an.f)
+        # fill!(an.Wt, 5.0)
         an.d = -diag(x * an.Wt)
         S = hidden_out(an, x)
 
@@ -97,16 +100,11 @@ function fit!(an::AlgebraicNetwork, x::AbstractArray, y::AbstractVector)
             an.n_train_it += 1
             continue
         else
-            an.v = S \ y
+            an.v = StableReg.regress(reg, S, y)
             return an
         end
     end
 
-end
-
-@compat function (an::AlgebraicNetwork)(x′::AbstractArray)
-    @assert size(x′, 2) == an.q "wrong input dimension"
-    return hidden_out(an, x′) * an.v
 end
 
 function Base.show{TA}(io::IO, an::AlgebraicNetwork{TA})
@@ -117,6 +115,7 @@ function Base.show{TA}(io::IO, an::AlgebraicNetwork{TA})
       - $(an.q) input dimension(s)
       - $(an.s) neuron(s)
       - $(an.p) training point(s)
+      - $(an.n_train_it) training iterations
     """
     print(io, s)
 end

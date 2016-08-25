@@ -22,9 +22,20 @@ function input_to_node(elm::AbstractSLFN, x, Wt=elm.Wt, d=elm.d)
     input_to_node(elm.neuron_type, x, Wt, d)
 end
 
-function hidden_out(elm::AbstractSLFN, x::AbstractArray, Wt=elm.Wt, d=elm.d)
+function hidden_out(elm::AbstractSLFN, x, Wt=elm.Wt, d=elm.d)
     elm.activation(input_to_node(elm, x, Wt, d))
 end
+
+function hidden_out(elm::AbstractSLFN, x::Number, Wt=elm.Wt, d=elm.d)
+    elm.activation(input_to_node(elm, x, Wt, d))
+end
+
+include("stable_regression.jl")
+
+using .StableReg
+export AbstractLinReg, AbstractLSMethod, AbstractLADMethod,
+    OLS, LSSVD, LSLdiv, RLSTikhonov, RLST, LADPP, LADDP,
+    RLADPP, RALDDP, RLSSVD, regress
 
 include("node_inputs.jl")
 include("activations.jl")
@@ -35,6 +46,26 @@ include("eielm.jl")
 include("roselm.jl")
 include("algebraic.jl")
 
+for T in subtypes(AbstractSLFN)
+    @eval @compat function (elm::$(T))(x′)
+        @assert size(x′, 2) == elm.q "wrong input dimension"
+        if length(elm.v) == size(elm.Wt, 2) + 1 # has intercept
+            hidden_out(elm, x′) * elm.v[2:end] + elm.v[1]
+        else
+            hidden_out(elm, x′) * elm.v
+        end
+    end
 
+    @eval @compat function (elm::$(T))(x′::Number)
+        if length(elm.v) == size(elm.Wt, 2) + 1 # has intercept
+            out_vec = hidden_out(elm, x′) * elm.v[2:end] + elm.v[1]
+        else
+            out_vec = hidden_out(elm, x′) * elm.v
+        end
+
+        @assert length(out_vec) == 1 "There's a bug -- file an issue"
+        return out_vec[1]
+    end
+end
 
 end # module

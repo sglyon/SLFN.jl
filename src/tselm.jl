@@ -34,12 +34,14 @@ function TSELM{TA<:AbstractActivation,
                TV<:AbstractArray}(x::AbstractArray, y::TV; activation::TA=Sigmoid(),
                                   neuron_type::TN=Linear(), s::Int=size(x, 1),
                                   ngroup::Int=5,
-                                  npg::Int=ceil(Int, size(x, 1)/10))
+                                  npg::Int=ceil(Int, size(x, 1)/10),
+                                  reg::AbstractLinReg=LSSVD())
     q = size(x, 2)  # dimensionality of function domain
     p = size(x, 1)  # number of training points
     s = min(p, s)  # can't have more neurons than obs
+    npg = min(ceil(Int, s/4), npg)  # ensure at least 4 groups
     out = TSELM{TA,TN,TV}(p, q, s, ngroup, npg, activation, neuron_type)
-    fit!(out, x, y)
+    fit!(out, x, y, reg)
 end
 
 ## helper methods
@@ -48,7 +50,8 @@ end
 _split_data(a::AbstractVector) = (a[1:2:end], a[2:2:end])
 _split_data(a::AbstractMatrix) = (a[1:2:end, :], a[2:2:end, :])
 
-function forward_selection!(elm::TSELM, x::AbstractArray, y::AbstractVector)
+function forward_selection!(elm::TSELM, x::AbstractArray, y::AbstractVector,
+                            reg::AbstractLinReg)
     # split data sets
     train_x, validate_x = _split_data(x)
     train_y, validate_y = _split_data(y)
@@ -66,7 +69,7 @@ function forward_selection!(elm::TSELM, x::AbstractArray, y::AbstractVector)
         inds = (L-elm.npg)+1:L
 
         # variables to hold max ΔJ and corresponding δH for this
-        # batch of groups. Define empty matrices to get type stadility
+        # batch of groups. Define empty matrices to get type stability
         ΔJ = -Inf
         ΔR = zeros(0, 0)
         Ak = zeros(0, 0)
@@ -83,7 +86,7 @@ function forward_selection!(elm::TSELM, x::AbstractArray, y::AbstractVector)
             # Step 3: compute the contribution of this group to cost function
             # TODO: sometimes (δHi'R*δHi) is singular. I can loop over above until
             #       it works
-            ΔRi = (R*δHi)*((δHi'R*δHi) \ (δHi'R'))
+            ΔRi = (R*δHi)*(pinv(δHi'R*δHi) * (δHi'R'))
             ΔJi = dot(train_y, ΔRi*train_y)
 
             # Step 4: keep this group if it is the best we've seen so far
@@ -103,10 +106,12 @@ function forward_selection!(elm::TSELM, x::AbstractArray, y::AbstractVector)
     # Step 6: Find the optimal number of neurons pstar
     pstar = 0
     fpe_min = Inf
-    for p in elm.ngroup:elm.ngroup:elm.s
+    for p in elm.npg:elm.npg:elm.s
         Hp = hidden_out(elm, validate_x, W[:, 1:p], d[1:p])
-        βp = Hp \ validate_y
-        SSEp = norm(validate_y - Hp*βp, 2)
+        βp = regress(reg, Hp, validate_y)
+        SSEp = StableReg.should_add_intercept(reg) ?
+            norm(validate_y - (Hp*βp[2:end] + βp[1]), 2) :
+            norm(validate_y - (Hp*βp), 2)
         fpe = SSEp/N_validate * (N_validate+p)/(N_validate-p)
 
         if fpe < fpe_min
@@ -120,7 +125,7 @@ function forward_selection!(elm::TSELM, x::AbstractArray, y::AbstractVector)
     elm.Wt = W[:, 1:pstar]
     elm.d = d[1:pstar]
     H = hidden_out(elm, x, elm.Wt, elm.d)
-    elm.v = H \ y
+    elm.v = regress(reg, H, y)
 
     elm, H
 end
@@ -158,15 +163,11 @@ function backward_elimination!(elm::TSELM, x::AbstractArray, y::AbstractVector,
 
 end
 
-function fit!(elm::TSELM, x::AbstractArray, y::AbstractVector)
-    elm, H = forward_selection!(elm, x, y)
+function fit!(elm::TSELM, x::AbstractArray, y::AbstractVector,
+              reg::AbstractLinReg)
+    elm, H = forward_selection!(elm, x, y, reg)
     backward_elimination!(elm, x, y, H)
     elm
-end
-
-@compat function (elm::TSELM)(x′::AbstractArray)
-    @assert size(x′, 2) == elm.q "wrong input dimension"
-    return hidden_out(elm, x′, elm.Wt, elm.d) * elm.v
 end
 
 function Base.show{TA,TN}(io::IO, elm::TSELM{TA,TN})

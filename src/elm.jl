@@ -30,25 +30,21 @@ end
 function ELM{TA<:AbstractActivation,
              TN<:AbstractNodeInput,
              TV<:AbstractArray}(x::AbstractArray, y::TV; activation::TA=SoftPlus(),
-                                neuron_type::TN=Linear(), s::Int=size(x, 1))
+                                neuron_type::TN=Linear(), s::Int=size(x, 1),
+                                reg::AbstractLinReg=LSSVD())
     q = size(x, 2)  # dimensionality of function domain
     p = size(x, 1)  # number of training points
     s = min(p, s)   # Can't have more neurons than training points
     out = ELM{TA,TN,TV}(p, q, s, activation, neuron_type)
-    fit!(out, x, y)
+    fit!(out, x, y, reg)
 end
 
 ## API methods
-function fit!(elm::ELM, x::AbstractArray, y::AbstractArray)
+function fit!(elm::ELM, x::AbstractArray, y::AbstractArray,
+              reg::AbstractLinReg=LSSVD())
     S = hidden_out(elm, x)
-    # elm.v = pinv(S) * u
-    elm.v = S \ y
+    elm.v = regress(reg, S, y)
     elm
-end
-
-@compat function (elm::ELM)(x′::AbstractArray)
-    @assert size(x′, 2) == elm.q "wrong input dimension"
-    return hidden_out(elm, x′) * elm.v
 end
 
 function Base.show{TA}(io::IO, elm::ELM{TA})

@@ -19,14 +19,14 @@ type EIELM{TA<:AbstractActivation,TV<:AbstractArray{Float64}} <: AbstractSLFN
     activation::TA
     At::Matrix{Float64}  # transpose of W matrix
     b::Vector{Float64}
-    β::TV
+    v::TV
 
     function EIELM(p::Int, q::Int, Lmax::Int, k::Int, ϵ::Float64, activation::TA)
         WARNINGS[1] && warn("This is experimental and doesn't work properly")
         At = Array(Float64, q, Lmax)  # will chop later
         b = Array(Float64, Lmax)      # ditto
-        β = Array(Float64, Lmax)      # ditto
-        new(p, q, Lmax, k, ϵ, activation, At, b, β)
+        v = Array(Float64, Lmax)      # ditto
+        new(p, q, Lmax, k, ϵ, activation, At, b, v)
     end
 end
 
@@ -58,14 +58,14 @@ function fit!(elm::EIELM, x::AbstractArray, y::AbstractArray)
             Ai = 2*rand(elm.q, 1) - 1  # uniform [-1, 1]
             bi = 2*rand() - 1          # uniform [-1, 1]
             Hi = hidden_out(elm, x, Ai, bi)
-            βi = dot(E, Hi) / dot(Hi, Hi)
-            Ei = E - βi*Hi
+            vi = dot(E, Hi) / dot(Hi, Hi)
+            Ei = E - vi*Hi
             Ei_contrib = norm(Ei)
 
             if Ei_contrib < min_Ei_contrib
                 elm.At[:, L] = Ai
                 elm.b[L] = bi
-                elm.β[L] = βi
+                elm.v[L] = vi
                 min_Ei_contrib = Ei_contrib
                 copy!(min_Ei, Ei)
             end
@@ -78,13 +78,8 @@ function fit!(elm::EIELM, x::AbstractArray, y::AbstractArray)
     # chop before returning
     elm.At = elm.At[:, 1:L]
     elm.b = elm.b[1:L]
-    elm.β = elm.β[1:L]
+    elm.v = elm.v[1:L]
     elm
-end
-
-@compat function (elm::EIELM)(x′::AbstractArray)
-    @assert size(x′, 2) == elm.q "wrong input dimension"
-    return hidden_out(elm, x′) * elm.β
 end
 
 function Base.show{TA}(io::IO, elm::EIELM{TA})
