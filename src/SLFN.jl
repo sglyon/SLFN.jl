@@ -46,9 +46,21 @@ include("eielm.jl")
 include("roselm.jl")
 include("algebraic.jl")
 
+StableReg.standardize(x::AbstractMatrix, μ::AbstractVector, σ::AbstractVector) =
+    (x .- μ') ./ σ'
+
+StableReg.standardize(x::AbstractVector, μ::AbstractVector, σ::AbstractVector) =
+    length(μ) == 1 ? (x .- μ') ./ σ' : (x .- μ) ./ σ
+
+function StableReg.standardize(x::Number, μ, σ)
+    length(μ) == length(σ) == 1 || error("x shouldn't be scalar")
+    (x - μ[1]) / σ[1]
+end
+
 for T in subtypes(AbstractSLFN)
-    @eval @compat function (elm::$(T))(x′)
-        @assert size(x′, 2) == elm.q "wrong input dimension"
+    @eval @compat function (elm::$(T))(_x′)
+        @assert size(_x′, 2) == elm.q "wrong input dimension"
+        x′ = isdefined(elm, :μx) ? standardize(_x′, elm.μx, elm.σx) : _x′
         if length(elm.v) == size(elm.Wt, 2) + 1 # has intercept
             hidden_out(elm, x′) * elm.v[2:end] + elm.v[1]
         else
@@ -56,7 +68,8 @@ for T in subtypes(AbstractSLFN)
         end
     end
 
-    @eval @compat function (elm::$(T))(x′::Number)
+    @eval @compat function (elm::$(T))(_x′::Number)
+        x′ = isdefined(elm, :μx) ? standardize(_x′, elm.μx, elm.σx) : _x′
         if length(elm.v) == size(elm.Wt, 2) + 1 # has intercept
             out_vec = hidden_out(elm, x′) * elm.v[2:end] + elm.v[1]
         else

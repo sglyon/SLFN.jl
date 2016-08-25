@@ -17,6 +17,8 @@ type OSELM{TA<:AbstractActivation,TN<:AbstractNodeInput,TV<:AbstractArray{Float6
     s::Int  # number of neurons
     activation::TA
     neuron_type::TN
+    μx::Vector{Float64}
+    σx::Vector{Float64}
     Wt::Matrix{Float64}  # transpose of W matrix
     d::Vector{Float64}
 
@@ -24,12 +26,13 @@ type OSELM{TA<:AbstractActivation,TN<:AbstractNodeInput,TV<:AbstractArray{Float6
     p_tot::Int
     v::TV
 
-    function OSELM(p::Int, q::Int, s::Int, activation::TA, neuron_type::TN)
+    function OSELM(p::Int, q::Int, s::Int, activation::TA, neuron_type::TN,
+                   μx, σx)
         # NOTE: Wt and d are constant throughout all learning chunks
         Wt = 2*rand(q, s) - 1
         d = rand(s)
         M = zeros(Float64, s, s)
-        new(p, q, s, activation, neuron_type, Wt, d, M, 0)
+        new(p, q, s, activation, neuron_type, μx, σx, Wt, d, M, 0)
     end
 end
 
@@ -40,8 +43,9 @@ function OSELM{TA<:AbstractActivation,
     q = size(x, 2)  # dimensionality of function domain
     p = size(x, 1)  # number of training points
     s = min(p, s)   # Can't have more neurons than training points
-    out = OSELM{TA,TN,TV}(p, q, s, activation, neuron_type)
-    fit!(out, x, y)
+    xn, μx, σx = standardize(x[:, :])
+    out = OSELM{TA,TN,TV}(p, q, s, activation, neuron_type, μx, σx)
+    fit!(out, xn, y)
 end
 
 ## API methods

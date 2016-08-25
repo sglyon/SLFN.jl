@@ -18,13 +18,15 @@ type TSELM{TA<:AbstractActivation,TN<:AbstractNodeInput,TV<:AbstractArray{Float6
     npg::Int  # nodes per group
     activation::TA
     neuron_type::TN
+    μx::Vector{Float64}
+    σx::Vector{Float64}
     Wt::Matrix{Float64}
     d::Vector{Float64}
     v::TV
 
     function TSELM(p::Int, q::Int, s::Int, ngroup::Int, npg::Int, activation::TA,
-                   neuron_type::TN)
-        new(p, q, s, ngroup, npg, activation, neuron_type)
+                   neuron_type::TN, μx, σx)
+        new(p, q, s, ngroup, npg, activation, neuron_type, μx, σx)
     end
 end
 
@@ -40,8 +42,9 @@ function TSELM{TA<:AbstractActivation,
     p = size(x, 1)  # number of training points
     s = min(p, s)  # can't have more neurons than obs
     npg = min(ceil(Int, s/4), npg)  # ensure at least 4 groups
-    out = TSELM{TA,TN,TV}(p, q, s, ngroup, npg, activation, neuron_type)
-    fit!(out, x, y, reg)
+    xn, μx, σx = standardize(x[:, :])
+    out = TSELM{TA,TN,TV}(p, q, s, ngroup, npg, activation, neuron_type, μx, σx)
+    fit!(out, xn, y, reg)
 end
 
 ## helper methods

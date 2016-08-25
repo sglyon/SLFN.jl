@@ -17,7 +17,7 @@ using MathProgBase
 
 export AbstractLinReg, AbstractLSMethod, AbstractLADMethod,
     OLS, LSSVD, LSLdiv, RLSTikhonov, RLST, LADPP, LADDP,
-    RLADPP, RALDDP, RLSSVD, regress
+    RLADPP, RALDDP, RLSSVD, regress, standardize
 
 abstract AbstractLinReg
 abstract AbstractLSMethod <: AbstractLinReg
@@ -27,7 +27,7 @@ abstract AbstractLADMethod <: AbstractLinReg
 # Utilities #
 # --------- #
 
-function normalize(x::AbstractMatrix, intercept::Bool=false)
+function standardize(x::AbstractMatrix, intercept::Bool=false)
     _x = intercept ? view(x, :, 2:size(x, 2)) : view(x, :, :)
     μ = mean(_x, 1)
     σ = std(_x, 1)
@@ -35,7 +35,7 @@ function normalize(x::AbstractMatrix, intercept::Bool=false)
     xn, vec(μ), vec(σ)
 end
 
-function normalize(y::AbstractVector, intercept=false)
+function standardize(y::AbstractVector, intercept=false)
     μ = mean(y)
     σ = std(y)
     yn = (y - μ) / σ
@@ -49,13 +49,13 @@ add_intercept{T}(x::AbstractArray{T}) = [ones(T, size(x, 1)) x]
 # --- #
 
 @with_kw immutable OLS <: AbstractLSMethod
-    normalize::Bool = true
+    standardize::Bool = true
     intercept::Bool = true
-    @assert !(normalize && !(intercept)) "must have intercept if normalizing"
+    @assert !(standardize && !(intercept)) "must have intercept if standardizing"
 end
 
 # API methods
-should_normalize(m::OLS) = m.normalize
+should_standardize(m::OLS) = m.standardize
 should_add_intercept(m::OLS) = m.intercept
 slopes(::OLS, x, y) = pinv(x'x)*x'y
 
@@ -64,13 +64,13 @@ slopes(::OLS, x, y) = pinv(x'x)*x'y
 # ------ #
 
 @with_kw immutable LSLdiv <: AbstractLSMethod
-    normalize::Bool = true
+    standardize::Bool = true
     intercept::Bool = true
-    @assert !(normalize && !(intercept)) "must have intercept if normalizing"
+    @assert !(standardize && !(intercept)) "must have intercept if standardizing"
 end
 
 # API methods
-should_normalize(m::LSLdiv) = m.normalize
+should_standardize(m::LSLdiv) = m.standardize
 should_add_intercept(m::LSLdiv) = m.intercept
 slopes(::LSLdiv, x, y) = x\y
 
@@ -79,13 +79,13 @@ slopes(::LSLdiv, x, y) = x\y
 # ----- #
 
 @with_kw immutable LSSVD <: AbstractLSMethod
-    normalize::Bool = true
+    standardize::Bool = true
     intercept::Bool = true
-    @assert !(normalize && !(intercept)) "must have intercept if normalizing"
+    @assert !(standardize && !(intercept)) "must have intercept if standardizing"
 end
 
 # API methods
-should_normalize(m::LSSVD) = m.normalize
+should_standardize(m::LSSVD) = m.standardize
 should_add_intercept(m::LSSVD) = m.intercept
 function slopes(m::LSSVD, x, y)
     U, S, V = svd(x, thin=true)
@@ -100,16 +100,16 @@ end
 
 @with_kw immutable RLSTikhonov <: AbstractLSMethod
     η::Float64 = -5.0
-    normalize::Bool = true
+    standardize::Bool = true
     intercept::Bool = true
-    @assert !(normalize && !(intercept)) "must have intercept if normalizing"
+    @assert !(standardize && !(intercept)) "must have intercept if standardizing"
     @assert η < 0.0 "penalty parameter for RLSTikhonov must be negative"
 end
 
 typealias RLST RLSTikhonov
 
 # API methods
-should_normalize(m::RLSTikhonov) = m.normalize
+should_standardize(m::RLSTikhonov) = m.standardize
 should_add_intercept(m::RLSTikhonov) = m.intercept
 function slopes(m::RLSTikhonov, x, y)
     nobs = size(x, 1); nx = size(x, 2)
@@ -121,9 +121,9 @@ end
 # ----- #
 
 @with_kw immutable LADPP <: AbstractLADMethod
-    normalize::Bool = true
+    standardize::Bool = true
     intercept::Bool = true
-    @assert (normalize && intercept) "normalize and intercept must both be true"
+    @assert (standardize && intercept) "standardize and intercept must both be true"
 end
 
 doc"""
@@ -172,9 +172,9 @@ end
 # ----- #
 
 @with_kw immutable LADDP <: AbstractLADMethod
-    normalize::Bool = true
+    standardize::Bool = true
     intercept::Bool = true
-    @assert (normalize && intercept) "normalize and intercept must both be true"
+    @assert (standardize && intercept) "standardize and intercept must both be true"
 end
 
 doc"""
@@ -224,10 +224,10 @@ end
 
 @with_kw immutable RLADPP <: AbstractLADMethod
     η::Float64 = -5.0
-    normalize::Bool = true
+    standardize::Bool = true
     intercept::Bool = true
     @assert η < 0.0 "penalty parameter for RLSTikhonov must be negative"
-    @assert (normalize && intercept) "normalize and intercept must both be true"
+    @assert (standardize && intercept) "standardize and intercept must both be true"
 end
 
 doc"""
@@ -276,10 +276,10 @@ end
 
 @with_kw immutable RLADDP <: AbstractLADMethod
     η::Float64 = -5.0
-    normalize::Bool = true
+    standardize::Bool = true
     intercept::Bool = true
     @assert η < 0.0 "penalty parameter for RLSTikhonov must be negative"
-    @assert (normalize && intercept) "normalize and intercept must both be true"
+    @assert (standardize && intercept) "standardize and intercept must both be true"
 end
 
 doc"""
@@ -329,14 +329,14 @@ end
 
 @with_kw immutable RLSSVD <: AbstractLSMethod
     κ::Float64=100_000.0
-    normalize::Bool = true
+    standardize::Bool = true
     intercept::Bool = true
     @assert κ > 0 "κ must be positive"
-    @assert !(normalize && !(intercept)) "must have intercept if normalizing"
+    @assert !(standardize && !(intercept)) "must have intercept if standardizing"
 end
 
 # API methods
-should_normalize(m::RLSSVD) = m.normalize
+should_standardize(m::RLSSVD) = m.standardize
 should_add_intercept(m::RLSSVD) = m.intercept
 function slopes(m::RLSSVD, x, y)
     U, S, V = svd(x, thin=true)
@@ -365,17 +365,17 @@ function slopes(m::AbstractLADMethod, x, y::AbstractVector)
     βmat[:, 1]
 end
 
-should_normalize(::AbstractLinReg) = true
+should_standardize(::AbstractLinReg) = true
 should_add_intercept(::AbstractLinReg) = true
 
 _reg_nonorm_noint(m::AbstractLinReg, x, y) = slopes(m, x, y)
 _reg_nonorm_int(m::AbstractLinReg, x, y) = slopes(m, add_intercept(x), y)
 
 function _reg_norm_noint(m::AbstractLinReg, x, y)
-    xn, μx, σx = normalize(x)
-    yn, μy, σy = normalize(y)
+    xn, μx, σx = standardize(x)
+    yn, μy, σy = standardize(y)
 
-    # Compute normalized coefficients, then undo normalization
+    # Compute standardized coefficients, then undo normalization
     β = slopes(m, xn, yn)
     # update slopes
     for j in 1:size(y, 2)
@@ -387,10 +387,10 @@ function _reg_norm_noint(m::AbstractLinReg, x, y)
 end
 
 function _reg_norm_int(m::AbstractLinReg, x, y::AbstractVector)
-    xn, μx, σx = normalize(x)
-    yn, μy, σy = normalize(y)
+    xn, μx, σx = standardize(x)
+    yn, μy, σy = standardize(y)
 
-    # Compute normalized coefficients, then undo normalization
+    # Compute standardized coefficients, then undo normalization
     β1 = slopes(m, xn, yn)
     for i in eachindex(β1)
         β1[i] *= σy/σx[i]
@@ -404,10 +404,10 @@ function _reg_norm_int(m::AbstractLinReg, x, y::AbstractVector)
 end
 
 function _reg_norm_int(m::AbstractLinReg, x, y::AbstractMatrix)
-    xn, μx, σx = normalize(x)
-    yn, μy, σy = normalize(y)
+    xn, μx, σx = standardize(x)
+    yn, μy, σy = standardize(y)
 
-    # Compute normalized coefficients, then undo normalization
+    # Compute standardized coefficients, then undo normalization
     β1 = slopes(m, xn, yn)
     β0 = similar(β1, 1, size(y, 2))
 
@@ -427,9 +427,9 @@ function _reg_norm_int(m::AbstractLinReg, x, y::AbstractMatrix)
 end
 
 regress(m::AbstractLinReg, x, y) =
-    (should_normalize(m)  && should_add_intercept(m))  ? _reg_norm_int(m, x, y) :
-    (!should_normalize(m) && should_add_intercept(m))  ? _reg_nonorm_int(m, x, y) :
-    (should_normalize(m)  && !should_add_intercept(m)) ? _reg_norm_noint(m, x, y) :
+    (should_standardize(m)  && should_add_intercept(m))  ? _reg_norm_int(m, x, y) :
+    (!should_standardize(m) && should_add_intercept(m))  ? _reg_nonorm_int(m, x, y) :
+    (should_standardize(m)  && !should_add_intercept(m)) ? _reg_norm_noint(m, x, y) :
                                                          _reg_nonorm_noint(m, x, y)
 
 

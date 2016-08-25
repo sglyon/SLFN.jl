@@ -11,22 +11,25 @@ Neurocomputing, 2008 vol. 71 (16-18) pp. 3460-3468.
 http://linkinghub.elsevier.com/retrieve/pii/S0925231207003633
 """
 type EIELM{TA<:AbstractActivation,TV<:AbstractArray{Float64}} <: AbstractSLFN
-    p::Int  # Number of training points
-    q::Int  # Dimensionality of function domain
-    Lmax::Int  # maximum number of neurons
-    k::Int  # maximum number of trials in node addition
-    ϵ::Float64  # expected learning accuracy
+    p::Int              # Number of training points
+    q::Int              # Dimensionality of function domain
+    Lmax::Int           # maximum number of neurons
+    k::Int              # maximum number of trials in node addition
+    ϵ::Float64          # expected learning accuracy
     activation::TA
-    At::Matrix{Float64}  # transpose of W matrix
+    μx::Vector{Float64}
+    σx::Vector{Float64}
+    At::Matrix{Float64} # transpose of W matrix
     b::Vector{Float64}
     v::TV
 
-    function EIELM(p::Int, q::Int, Lmax::Int, k::Int, ϵ::Float64, activation::TA)
+    function EIELM(p::Int, q::Int, Lmax::Int, k::Int, ϵ::Float64, activation::TA,
+                   μx, σx)
         WARNINGS[1] && warn("This is experimental and doesn't work properly")
         At = Array(Float64, q, Lmax)  # will chop later
         b = Array(Float64, Lmax)      # ditto
         v = Array(Float64, Lmax)      # ditto
-        new(p, q, Lmax, k, ϵ, activation, At, b, v)
+        new(p, q, Lmax, k, ϵ, activation, μx, σx, At, b, v)
     end
 end
 
@@ -38,8 +41,9 @@ function EIELM{TA<:AbstractActivation,TV<:AbstractArray}(x::AbstractArray, y::TV
     q = size(x, 2)  # dimensionality of function domain
     p = size(x, 1)  # number of training points
     Lmax = min(Lmax, p)
-    out = EIELM{TA,TV}(p, q, Lmax, k, ϵ, activation)
-    fit!(out, x, y)
+    xn, μx, σx = normalize(x[:, :])
+    out = EIELM{TA,TV}(p, q, Lmax, k, ϵ, activation, μx, σx)
+    fit!(out, xn, y)
 end
 
 ## API methods

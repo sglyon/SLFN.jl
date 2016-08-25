@@ -45,3 +45,15 @@ let
         @test maxabs(n(X3) - Y3) < 1e-2
     end
 end
+
+# test non [0, 1] domain works (i.e. standardizing is working)
+let
+    x = 150 * rand(5,5)
+    y = randn(5)
+
+    for T in TS
+        verbose && println(T, " standardizing")
+        n = T(x, y, s=5)
+        @test maxabs(n(x) - y) < 1e-10
+    end
+end

@@ -16,14 +16,16 @@ type ELM{TA<:AbstractActivation,TN<:AbstractNodeInput,TV<:AbstractArray{Float64}
     s::Int  # number of neurons
     activation::TA
     neuron_type::TN
+    μx::Vector{Float64}
+    σx::Vector{Float64}
     Wt::Matrix{Float64}  # transpose of W matrix
     d::Vector{Float64}
     v::TV
 
-    function ELM(p::Int, q::Int, s::Int, activation::TA, neuron_type::TN)
+    function ELM(p::Int, q::Int, s::Int, activation::TA, neuron_type::TN, μx, σx)
         Wt = 2*rand(q, s) - 1
         d = rand(s)
-        new(p, q, s, activation, neuron_type, Wt, d)
+        new(p, q, s, activation, neuron_type, μx, σx, Wt, d)
     end
 end
 
@@ -35,8 +37,9 @@ function ELM{TA<:AbstractActivation,
     q = size(x, 2)  # dimensionality of function domain
     p = size(x, 1)  # number of training points
     s = min(p, s)   # Can't have more neurons than training points
-    out = ELM{TA,TN,TV}(p, q, s, activation, neuron_type)
-    fit!(out, x, y, reg)
+    xn, μx, σx = standardize(x[:, :])
+    out = ELM{TA,TN,TV}(p, q, s, activation, neuron_type, μx, σx)
+    fit!(out, xn, y, reg)
 end
 
 ## API methods

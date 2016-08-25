@@ -19,21 +19,24 @@ type AlgebraicNetwork{TA<:AbstractActivation} <: AbstractSLFN
     f::Float64
     maxit::Int
     neuron_type::Linear
+    μx::Vector{Float64}
+    σx::Vector{Float64}
     Wt::Matrix{Float64}  # transpose of W matrix
     d::Vector{Float64}
     v::Vector{Float64}
 
-    function AlgebraicNetwork(p::Int, q::Int, s::Int, activation::TA, f::Float64, maxit::Int)
+    function AlgebraicNetwork(p::Int, q::Int, s::Int, activation::TA, f::Float64, maxit::Int,
+                              μx, σx)
         Wt = Array(Float64, q, s)
         d = Array(Float64, s)
         v = Array(Float64, s)
-        new(p, q, s, 0, activation, f, maxit, Linear(), Wt, d, v)
+        new(p, q, s, 0, activation, f, maxit, Linear(), μx, σx, Wt, d, v)
     end
 end
 
 function AlgebraicNetwork{TA<:AbstractActivation}(x::AbstractArray, y::AbstractArray;
                                                   activation::TA=Sigmoid(),
-                                                  s::Int=size(x, 1), f::Float64=4.5,
+                                                  s::Int=size(x, 1), f::Float64=0.8,
                                                   maxit::Int=1000,
                                                   reg::AbstractLinReg=LSSVD())
     p = size(x, 1)
@@ -42,8 +45,9 @@ function AlgebraicNetwork{TA<:AbstractActivation}(x::AbstractArray, y::AbstractA
     @assert size(y, 1) == p "x and y must have same number of observations"
 
     s = min(s, p)
-    out = AlgebraicNetwork{TA}(p, q, s, activation, f, maxit)
-    fit!(out, x, y, reg)
+    xn, μx, σx = standardize(x[:, :])
+    out = AlgebraicNetwork{TA}(p, q, s, activation, f, maxit, μx, σx)
+    fit!(out, xn, y, reg)
     out
 end
 

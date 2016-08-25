@@ -18,6 +18,8 @@ type ROSELM{TA<:AbstractActivation} <: AbstractSLFN
     c::Float64
     maxit::Int
     activation::TA
+    μx::Vector{Float64}
+    σx::Vector{Float64}
     Wt::Matrix{Float64}  # trelmspose of W matrix
     d::Vector{Float64}
     v::Vector{Float64}
@@ -27,12 +29,13 @@ type ROSELM{TA<:AbstractActivation} <: AbstractSLFN
     M::Matrix{Float64}
     p_tot::Int
 
-    function ROSELM(p::Int, q::Int, s::Int, c::Float64, maxit::Int, activation::TA)
+    function ROSELM(p::Int, q::Int, s::Int, c::Float64, maxit::Int, activation::TA,
+                    μx, σx)
         Wt = Array(Float64, q, s)
         d = Array(Float64, s)
         v = Array(Float64, s)
         M = zeros(Float64, 0, 0)
-        new(p, q, s, c, maxit, activation, Wt, d, v, Linear(), M, 0)
+        new(p, q, s, c, maxit, activation, μx, σx, Wt, d, v, Linear(), M, 0)
     end
 end
 
@@ -46,8 +49,9 @@ function ROSELM{TA<:AbstractActivation}(x::AbstractArray, y::AbstractArray;
     @assert size(y, 1) == p "x and y must have same number of observations"
 
     s = min(s, p)
-    out = ROSELM{TA}(p, q, s, c, maxit, activation)
-    fit!(out, x, y)
+    xn, μx, σx = standardize(x[:, :])
+    out = ROSELM{TA}(p, q, s, c, maxit, activation, μx, σx)
+    fit!(out, xn, y)
     out
 end
 
