@@ -5,6 +5,13 @@ module SLFN
 using Distances, Compat
 using Compat: view
 
+include("stable_regression.jl")
+
+using .StableReg
+export StableReg, AbstractLinReg, AbstractLSMethod, AbstractLADMethod,
+    OLS, LSSVD, LSLdiv, RLSTikhonov, RLST, LADPP, LADDP,
+    RLADPP, RALDDP, RLSSVD, regress
+
 abstract AbstractSLFN
 
 export AbstractActivation, Sigmoid, SoftPlus, Tanh, Relu, AbstractSLFN,
@@ -29,13 +36,6 @@ end
 function hidden_out(elm::AbstractSLFN, x::Number, Wt=elm.Wt, d=elm.d)
     elm.activation(input_to_node(elm, x, Wt, d))
 end
-
-include("stable_regression.jl")
-
-using .StableReg
-export AbstractLinReg, AbstractLSMethod, AbstractLADMethod,
-    OLS, LSSVD, LSLdiv, RLSTikhonov, RLST, LADPP, LADDP,
-    RLADPP, RALDDP, RLSSVD, regress
 
 include("node_inputs.jl")
 include("activations.jl")
