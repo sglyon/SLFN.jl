@@ -51,44 +51,6 @@ function AlgebraicNetwork{TA<:AbstractActivation}(x::AbstractArray, y::AbstractA
     out
 end
 
-# algorithm that includes gradient information
-function AlgebraicNetwork(x::AbstractArray, y::AbstractArray,
-                          c::AbstractArray; activation::AbstractActivation=Sigmoid,
-                          s::Int=size(y, 1), f::Float64=5.0,
-                          tol::Float64=1e-5, maxit::Int=1000)
-    e = size(c, 1)
-    p = size(x, 1)
-    @assert size(c, 2) == p "need one gradient column for each training sample"
-
-    # do initial fit
-    out = AlgebraicNetwork(x, y, activation, s, f, maxit)
-
-    N = input_to_node(out, x)
-
-    # now loop over training points to refine fit using gradient info
-    for i in 1:p
-        wi_old = vec(out.Wt[:, i])
-        c_i = slice(c, :, i)
-        c_network = (out.v' .* deriv(out.activation, N[i, :])) * out.Wt'
-        if maxabs(c_network - c_i) > tol
-            wi = out.Wt[:, i] + (c_i - c_network)/(out.v[i] * deriv(out.activation, N[i, i]))
-            wi_new = maxabs(wi) > 50 ? wi : wi_old
-        else
-            wi_new = wi_old
-        end
-
-        out.Wt[:, i] = wi_new
-        out.d[i] = -dot(slice(x, i, :), out.Wt[:, i])
-        N[:, i] = out.d[i] + x*out.Wt[:, i]
-
-        S = out.activation(N)
-        out.v = S \ y
-    end
-
-    out
-
-end
-
 ## API methods
 isexact(an::AlgebraicNetwork) = an.p == an.s
 function fit!(an::AlgebraicNetwork, x::AbstractArray, y::AbstractVector, reg::AbstractLinReg)
