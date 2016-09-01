@@ -31,7 +31,7 @@ end
 
 function ELM{TA<:AbstractActivation,
              TN<:AbstractNodeInput,
-             TV<:AbstractArray}(x::AbstractArray, y::TV; activation::TA=SoftPlus(),
+             TV<:AbstractArray}(x::AbstractArray, y::TV; activation::TA=Tanh(),
                                 neuron_type::TN=Linear(), s::Int=size(x, 1),
                                 reg::AbstractLinReg=LSSVD())
     q = size(x, 2)  # dimensionality of function domain

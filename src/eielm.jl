@@ -35,7 +35,7 @@ end
 
 
 function EIELM{TA<:AbstractActivation,TV<:AbstractArray}(x::AbstractArray, y::TV;
-                                                         activation::TA=SoftPlus(),
+                                                         activation::TA=Tanh(),
                                                          Lmax::Int=size(x, 1), k::Int=20,
                                                          ϵ::Float64=1e-6)
     q = size(x, 2)  # dimensionality of function domain

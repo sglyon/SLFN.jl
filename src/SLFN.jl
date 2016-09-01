@@ -77,8 +77,10 @@ for T in subtypes(AbstractSLFN)
         end
 
         @assert length(out_vec) == 1 "There's a bug -- file an issue"
-        return out_vec[1]
+        out_vec[1]
     end
 end
+
+Base.getindex(elm::AbstractSLFN, x) = elm(x)
 
 end # module

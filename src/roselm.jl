@@ -40,7 +40,7 @@ type ROSELM{TA<:AbstractActivation} <: AbstractSLFN
 end
 
 function ROSELM{TA<:AbstractActivation}(x::AbstractArray, y::AbstractArray;
-                                        activation::TA=Sigmoid(),
+                                        activation::TA=Tanh(),
                                         s::Int=size(x, 1), maxit::Int=1000,
                                         c::Float64=2.5)
     p = size(x, 1)
