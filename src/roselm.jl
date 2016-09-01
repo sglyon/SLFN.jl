@@ -11,38 +11,37 @@ Heidelberg.
 http://link.springer.com/10.1007/978-3-540-72383-7_126
 
 """
-type ROSELM{TA<:AbstractActivation} <: AbstractSLFN
+type ROSELM{TN<:Linear} <: AbstractSLFN
     p::Int  # Number of training points
     q::Int  # Dimensionality of function domain
     s::Int  # number of neurons
     c::Float64
     maxit::Int
-    activation::TA
     μx::Vector{Float64}
     σx::Vector{Float64}
     Wt::Matrix{Float64}  # trelmspose of W matrix
     d::Vector{Float64}
     v::Vector{Float64}
-    neuron_type::Linear
+    neuron_type::TN
 
     # internal state
     M::Matrix{Float64}
     p_tot::Int
 
-    function ROSELM(p::Int, q::Int, s::Int, c::Float64, maxit::Int, activation::TA,
-                    μx, σx)
+    function ROSELM(p::Int, q::Int, s::Int, c::Float64, maxit::Int,
+                    neuron_type::TN, μx, σx)
         Wt = Array(Float64, q, s)
         d = Array(Float64, s)
         v = Array(Float64, s)
         M = zeros(Float64, 0, 0)
-        new(p, q, s, c, maxit, activation, μx, σx, Wt, d, v, Linear(), M, 0)
+        new(p, q, s, c, maxit, μx, σx, Wt, d, v, neuron_type, M, 0)
     end
 end
 
-function ROSELM{TA<:AbstractActivation}(x::AbstractArray, y::AbstractArray;
-                                        activation::TA=Tanh(),
-                                        s::Int=size(x, 1), maxit::Int=1000,
-                                        c::Float64=2.5)
+function ROSELM{TN<:Linear}(x::AbstractArray, y::AbstractVector;
+                            neuron_type::TN=Linear(Tanh()),
+                            s::Int=size(x, 1), maxit::Int=1000,
+                            c::Float64=2.5)
     p = size(x, 1)
     q = size(x, 2)
 
@@ -50,7 +49,7 @@ function ROSELM{TA<:AbstractActivation}(x::AbstractArray, y::AbstractArray;
 
     s = min(s, p)
     xn, μx, σx = standardize(x[:, :])
-    out = ROSELM{TA}(p, q, s, c, maxit, activation, μx, σx)
+    out = ROSELM{TN}(p, q, s, c, maxit, neuron_type, μx, σx)
     fit!(out, xn, y)
     out
 end

@@ -11,11 +11,10 @@ Neurocomputing, 2006 vol. 70 (1-3) pp. 489-501.
 
 http://linkinghub.elsevier.com/retrieve/pii/S0925231206000385
 """
-type OSELM{TA<:AbstractActivation,TN<:AbstractNodeInput,TV<:AbstractArray{Float64}} <: AbstractSLFN
+type OSELM{TN<:AbstractNodeInput,TV<:AbstractArray{Float64}} <: AbstractSLFN
     p::Int  # Number of training points
     q::Int  # Dimensionality of function domain
     s::Int  # number of neurons
-    activation::TA
     neuron_type::TN
     μx::Vector{Float64}
     σx::Vector{Float64}
@@ -26,25 +25,25 @@ type OSELM{TA<:AbstractActivation,TN<:AbstractNodeInput,TV<:AbstractArray{Float6
     p_tot::Int
     v::TV
 
-    function OSELM(p::Int, q::Int, s::Int, activation::TA, neuron_type::TN,
+    function OSELM(p::Int, q::Int, s::Int, neuron_type::TN,
                    μx, σx)
         # NOTE: Wt and d are constant throughout all learning chunks
         Wt = 2*rand(q, s) - 1
         d = rand(s)
         M = zeros(Float64, s, s)
-        new(p, q, s, activation, neuron_type, μx, σx, Wt, d, M, 0)
+        new(p, q, s, neuron_type, μx, σx, Wt, d, M, 0)
     end
 end
 
-function OSELM{TA<:AbstractActivation,
-               TN<:AbstractNodeInput,
-               TV<:AbstractArray}(x::AbstractArray, y::TV; activation::TA=Tanh(),
-                                  neuron_type::TN=Linear(), s::Int=size(x, 1))
+function OSELM{TN<:AbstractNodeInput,
+               TV<:AbstractArray}(x::AbstractArray, y::TV;
+                                  neuron_type::TN=Linear(Tanh()),
+                                  s::Int=size(x, 1))
     q = size(x, 2)  # dimensionality of function domain
     p = size(x, 1)  # number of training points
     s = min(p, s)   # Can't have more neurons than training points
     xn, μx, σx = standardize(x[:, :])
-    out = OSELM{TA,TN,TV}(p, q, s, activation, neuron_type, μx, σx)
+    out = OSELM{TN,TV}(p, q, s, neuron_type, μx, σx)
     fit!(out, xn, y)
 end
 

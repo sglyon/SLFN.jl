@@ -10,13 +10,12 @@ Neurocomputing, 2010 vol. 73 (16-18) pp. 3028-3038.
 
 http://linkinghub.elsevier.com/retrieve/pii/S0925231210003401
 """
-type TSELM{TA<:AbstractActivation,TN<:AbstractNodeInput,TV<:AbstractArray{Float64}} <: AbstractSLFN
+type TSELM{TN<:AbstractNodeInput,TV<:AbstractArray{Float64}} <: AbstractSLFN
     p::Int  # Number of training points
     q::Int  # Dimensionality of function domai
     s::Int  # maximum number of neurons
     ngroup::Int  # number of groups
     npg::Int  # nodes per group
-    activation::TA
     neuron_type::TN
     μx::Vector{Float64}
     σx::Vector{Float64}
@@ -24,17 +23,17 @@ type TSELM{TA<:AbstractActivation,TN<:AbstractNodeInput,TV<:AbstractArray{Float6
     d::Vector{Float64}
     v::TV
 
-    function TSELM(p::Int, q::Int, s::Int, ngroup::Int, npg::Int, activation::TA,
+    function TSELM(p::Int, q::Int, s::Int, ngroup::Int, npg::Int,
                    neuron_type::TN, μx, σx)
-        new(p, q, s, ngroup, npg, activation, neuron_type, μx, σx)
+        new(p, q, s, ngroup, npg, neuron_type, μx, σx)
     end
 end
 
 
-function TSELM{TA<:AbstractActivation,
-               TN<:AbstractNodeInput,
-               TV<:AbstractArray}(x::AbstractArray, y::TV; activation::TA=Tanh(),
-                                  neuron_type::TN=Linear(), s::Int=size(x, 1),
+function TSELM{TN<:AbstractNodeInput,
+               TV<:AbstractArray}(x::AbstractArray, y::TV;
+                                  neuron_type::TN=Linear(Tanh()),
+                                  s::Int=size(x, 1),
                                   ngroup::Int=5,
                                   npg::Int=ceil(Int, size(x, 1)/10),
                                   reg::AbstractLinReg=LSSVD())
@@ -43,7 +42,7 @@ function TSELM{TA<:AbstractActivation,
     s = min(p, s)  # can't have more neurons than obs
     npg = min(ceil(Int, s/4), npg)  # ensure at least 4 groups
     xn, μx, σx = standardize(x[:, :])
-    out = TSELM{TA,TN,TV}(p, q, s, ngroup, npg, activation, neuron_type, μx, σx)
+    out = TSELM{TN,TV}(p, q, s, ngroup, npg, neuron_type, μx, σx)
     fit!(out, xn, y, reg)
 end
 
@@ -55,9 +54,16 @@ _split_data(a::AbstractMatrix) = (a[1:2:end, :], a[2:2:end, :])
 
 function forward_selection!(elm::TSELM, x::AbstractArray, y::AbstractVector,
                             reg::AbstractLinReg)
-    # split data sets
-    train_x, validate_x = _split_data(x)
-    train_y, validate_y = _split_data(y)
+    # split data sets -- but only when we have enough data for that to make
+    # sense
+    should_split = size(x, 1) >= 20
+    if should_split
+        train_x, validate_x = _split_data(x)
+        train_y, validate_y = _split_data(y)
+    else
+        train_x, validate_x = x, x
+        train_y, validate_y = y, y
+    end
     N = size(train_x, 1)
     N_validate = size(validate_x, 1)
 
@@ -87,8 +93,8 @@ function forward_selection!(elm::TSELM, x::AbstractArray, y::AbstractVector,
             δHi = hidden_out(elm, train_x, wiT, di)
 
             # Step 3: compute the contribution of this group to cost function
-            # TODO: sometimes (δHi'R*δHi) is singular. I can loop over above until
-            #       it works
+            # TODO: sometimes (δHi'R*δHi) is singular. I can loop over above
+            #       until it works
             ΔRi = (R*δHi)*(pinv(δHi'R*δHi) * (δHi'R'))
             ΔJi = dot(train_y, ΔRi*train_y)
 

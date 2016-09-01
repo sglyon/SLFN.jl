@@ -10,35 +10,34 @@ IEEE Trans Neural Netw, 2005 vol. 16 (1) pp. 24-38.
 
 http://ieeexplore.ieee.org/lpdocs/epic03/wrapper.htm?arnumber=1388456
 """
-type AlgebraicNetwork{TA<:AbstractActivation} <: AbstractSLFN
+type AlgebraicNetwork{TN<:Linear} <: AbstractSLFN
     p::Int  # Number of training points
     q::Int  # Dimensionality of function domain
     s::Int  # number of neurons
     n_train_it::Int  # number of training iterations
-    activation::TA
     f::Float64
     maxit::Int
-    neuron_type::Linear
+    neuron_type::TN
     μx::Vector{Float64}
     σx::Vector{Float64}
     Wt::Matrix{Float64}  # transpose of W matrix
     d::Vector{Float64}
     v::Vector{Float64}
 
-    function AlgebraicNetwork(p::Int, q::Int, s::Int, activation::TA, f::Float64, maxit::Int,
-                              μx, σx)
+    function AlgebraicNetwork(p::Int, q::Int, s::Int, neuron_type::TN,
+                              f::Float64, maxit::Int, μx, σx)
         Wt = Array(Float64, q, s)
         d = Array(Float64, s)
         v = Array(Float64, s)
-        new(p, q, s, 0, activation, f, maxit, Linear(), μx, σx, Wt, d, v)
+        new(p, q, s, 0, f, maxit, neuron_type, μx, σx, Wt, d, v)
     end
 end
 
-function AlgebraicNetwork{TA<:AbstractActivation}(x::AbstractArray, y::AbstractArray;
-                                                  activation::TA=Sigmoid(),
-                                                  s::Int=size(x, 1), f::Float64=0.8,
-                                                  maxit::Int=1000,
-                                                  reg::AbstractLinReg=LSSVD())
+function AlgebraicNetwork{TN<:Linear}(x::AbstractArray, y::AbstractArray;
+                                      neuron_type::TN=Linear(Tanh()),
+                                      s::Int=size(x, 1), f::Float64=0.8,
+                                      maxit::Int=1000,
+                                      reg::AbstractLinReg=LSSVD())
     p = size(x, 1)
     q = size(x, 2)
 
@@ -46,14 +45,15 @@ function AlgebraicNetwork{TA<:AbstractActivation}(x::AbstractArray, y::AbstractA
 
     s = min(s, p)
     xn, μx, σx = standardize(x[:, :])
-    out = AlgebraicNetwork{TA}(p, q, s, activation, f, maxit, μx, σx)
+    out = AlgebraicNetwork{TN}(p, q, s, neuron_type, f, maxit, μx, σx)
     fit!(out, xn, y, reg)
     out
 end
 
 ## API methods
 isexact(an::AlgebraicNetwork) = an.p == an.s
-function fit!(an::AlgebraicNetwork, x::AbstractArray, y::AbstractVector, reg::AbstractLinReg)
+function fit!(an::AlgebraicNetwork, x::AbstractArray, y::AbstractVector,
+              reg::AbstractLinReg)
     i = 0
     while true
         i += 1

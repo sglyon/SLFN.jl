@@ -30,15 +30,11 @@ function input_to_node(elm::AbstractSLFN, x, Wt=elm.Wt, d=elm.d)
 end
 
 function hidden_out(elm::AbstractSLFN, x, Wt=elm.Wt, d=elm.d)
-    elm.activation(input_to_node(elm, x, Wt, d))
+    hidden_out(elm.neuron_type, x, Wt, d)
 end
 
-function hidden_out(elm::AbstractSLFN, x::Number, Wt=elm.Wt, d=elm.d)
-    elm.activation(input_to_node(elm, x, Wt, d))
-end
-
-include("node_inputs.jl")
 include("activations.jl")
+include("node_inputs.jl")
 include("elm.jl")
 include("oselm.jl")
 include("tselm.jl")
