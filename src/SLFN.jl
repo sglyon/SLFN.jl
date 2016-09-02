@@ -15,7 +15,7 @@ export StableReg, AbstractLinReg, AbstractLSMethod, AbstractLADMethod,
 abstract AbstractSLFN
 
 export AbstractActivation, Sigmoid, SoftPlus, Tanh, Relu, AbstractSLFN,
-    fit!, isexact, input_to_node, hidden_out,
+    fit!, isexact, input_to_node, hidden_out, n_coefs, activate, activate!,
     AlgebraicNetwork, ELM, TSELM, EIELM, OSELM, ROSELM,
     Linear, RBF, Gaussian
 
@@ -32,6 +32,8 @@ end
 function hidden_out(elm::AbstractSLFN, x, Wt=elm.Wt, d=elm.d)
     hidden_out(elm.neuron_type, x, Wt, d)
 end
+
+n_coefs(elm::AbstractSLFN) = length(elm.Wt) + length(elm.d) + length(elm.v)
 
 include("activations.jl")
 include("node_inputs.jl")

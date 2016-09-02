@@ -6,11 +6,18 @@ immutable Relu <: AbstractActivation end
 immutable Tanh <: AbstractActivation end
 immutable Identity <: AbstractActivation end
 
-activate(::Sigmoid, x) = 1 ./ (1 + exp(-x))
-activate(::SoftPlus, x) = log(1 + exp(x))
-activate(::Relu, x) = max(x, 0)
-activate(::Tanh, x) = tanh(x)
-activate(::Identity, x) = x
+activate(::Sigmoid, x::Number) = 1 ./ (1 + exp(-x))
+activate(::SoftPlus, x::Number) = log(1 + exp(x))
+activate(::Relu, x::Number) = max(x, 0)
+activate(::Tanh, x::Number) = tanh(x)
+activate(::Identity, x::Number) = x
+
+activate(a::AbstractActivation, x::AbstractArray) =
+    map(_->activate(a, _), x)
+
+activate!(out::AbstractArray, a::AbstractActivation, x::AbstractArray) =
+    map!(_->activate(a, _), out, x)
+
 
 for T in subtypes(AbstractActivation)
     @eval @compat (ta::$(T))(x) = activate(ta, x)
