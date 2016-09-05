@@ -53,8 +53,8 @@ function fit!(elm::OSELM, x::AbstractArray, y::AbstractArray)
     S = hidden_out(elm, x)
     if elm.p_tot == 0  # this is the initialization phase
         # elm.v = S \ y
-        elm.v = pinv(S) * y
         elm.M = pinv(S'S)
+        elm.v = elm.M*S'y
     else
         elm.M -= elm.M*S' * inv(I + S*elm.M*S') * S * elm.M
         elm.v += elm.M * S' * (y - S*elm.v)

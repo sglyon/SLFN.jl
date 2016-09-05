@@ -70,8 +70,8 @@ function fit!(elm::ROSELM, x::AbstractArray, y::AbstractVector)
         end
 
         # elm.v = S \ y
-        elm.v = pinv(S) * y
         elm.M = pinv(S'S)
+        elm.v = elm.M*S'*y
     else
         # post-init phase
         S = hidden_out(elm, x)
