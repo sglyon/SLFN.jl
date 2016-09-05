@@ -16,7 +16,7 @@ abstract AbstractSLFN
 
 export AbstractActivation, Sigmoid, SoftPlus, Tanh, Relu, AbstractSLFN,
     fit!, isexact, input_to_node, hidden_out, n_coefs, activate, activate!,
-    AlgebraicNetwork, ELM, TSELM, EIELM, OSELM, ROSELM,
+    AlgebraicNetwork, ELM, TSELM, EIELM, OSELM, ROSELM, LSIELM,
     Linear, RBF, Gaussian
 
 const WARNINGS = [false]
@@ -43,6 +43,7 @@ include("tselm.jl")
 include("eielm.jl")
 include("roselm.jl")
 include("algebraic.jl")
+include("lsielm.jl")
 
 StableReg.standardize(x::AbstractMatrix, μ::AbstractVector, σ::AbstractVector) =
     (x .- μ') ./ σ'
