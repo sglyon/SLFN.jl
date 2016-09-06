@@ -7,7 +7,7 @@ function gridmake(x, y, z)
          repeat(z, inner=[nx*ny]))
 end
 
-function main(new_data=:same)
+function main(new_data=:same, n=40)
     println("Using $(new_data) data on each online training epoch")
 
     # create some data
@@ -27,7 +27,8 @@ function main(new_data=:same)
 
     # in the next line we train a single hidden layer neural network with tanh
     # neurons and random hidden parameters. The hidden neurons are assigned
-    # random parameters such that on the initial training data
+    # random parameters such that on the initial training data, the output
+    # matrix of the hidden layer is well conditioned.
     elm = ROSELM(X, Y, s=60, neuron_type=Linear(Tanh()))
 
     # see how well it generalizes
@@ -46,7 +47,7 @@ function main(new_data=:same)
 
     myprint(elm, X2, Y2, 0)
 
-    for i in 1:40
+    for i in 1:n
 	      for _ in 1:5
             if new_data == :same
 	              SLFN.fit!(elm, X, Y)
