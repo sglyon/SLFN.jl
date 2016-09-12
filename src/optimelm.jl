@@ -25,7 +25,6 @@ type OptimELM{TV<:AbstractArray{Float64},TN<:RBF} <: AbstractSLFN
     v::TV
     E::TV  # running error
 
-
     function OptimELM(p::Int, q::Int, s::Int, ϵ::Float64, neuron_type::TN)
         Wt = 2*rand(q, s) - 1
         d = rand(s)
@@ -78,7 +77,6 @@ function fit!(elm::OptimELM, x::AbstractArray, y::AbstractArray)
         end
 
         # Step 2.f: do some iterations of an optimization algorithm
-        # call to elm.k nm simplex iterations (or call Optim??)
         res = Optim.optimize(obj, 1e-5, 1e2)
         elm.d[n] = Optim.minimizer(res)
 
