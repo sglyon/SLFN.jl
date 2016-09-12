@@ -4,6 +4,7 @@ module SLFN
 
 using Distances, Compat
 using Compat: view
+import Optim
 
 include("stable_regression.jl")
 
@@ -44,6 +45,7 @@ include("eielm.jl")
 include("roselm.jl")
 include("algebraic.jl")
 include("lsielm.jl")
+include("optimelm.jl")
 
 StableReg.standardize(x::AbstractMatrix, μ::AbstractVector, σ::AbstractVector) =
     (x .- μ') ./ σ'
