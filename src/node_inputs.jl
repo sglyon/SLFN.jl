@@ -59,7 +59,10 @@ function input_to_node(r::RBF{Gaussian}, x::AbstractVector, c::AbstractMatrix,
 end
 
 # Special case scalar x version
-input_to_node(r::RBF{Gaussian}, x::Real, c, σ) =
+input_to_node(r::RBF{Gaussian,SqEuclidean}, x::Real, c, σ) =
     exp(-(x-c).^2 ./ σ')
+
+input_to_node(r::RBF{Gaussian,Euclidean}, x::Real, c, σ) =
+    exp(-sqrt((x-c).^2) ./ σ')
 
 hidden_out(rbf::RBF, x, c, σ) = input_to_node(rbf, x, c, σ)
