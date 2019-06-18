@@ -9,7 +9,7 @@ Philip Reiner and Bogdan M Wilamowski.
 http://ieeexplore.ieee.org/lpdocs/epic03/wrapper.htm?arnumber=6632816
 
 """
-type NMEELM{TV<:AbstractArray{Float64}} <: AbstractSLFN
+mutable struct NMEELM{TV<:AbstractArray{Float64}} <: AbstractSLFN
     p::Int  # Number of training points
     q::Int  # Dimensionality of function domain
     s::Int  # number of neurons

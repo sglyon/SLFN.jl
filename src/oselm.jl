@@ -11,7 +11,7 @@ Neurocomputing, 2006 vol. 70 (1-3) pp. 489-501.
 
 http://linkinghub.elsevier.com/retrieve/pii/S0925231206000385
 """
-type OSELM{TN<:AbstractNodeInput,TV<:AbstractArray{Float64}} <: AbstractSLFN
+mutable struct OSELM{TN,TV} <: AbstractSLFN where TN <: AbstractNodeInput where TV <: AbstractArray{Float64}
     p::Int  # Number of training points
     q::Int  # Dimensionality of function domain
     s::Int  # number of neurons
@@ -25,25 +25,23 @@ type OSELM{TN<:AbstractNodeInput,TV<:AbstractArray{Float64}} <: AbstractSLFN
     p_tot::Int
     v::TV
 
-    function OSELM(p::Int, q::Int, s::Int, neuron_type::TN,
-                   μx, σx)
+    function OSELM(p::Int, q::Int, s::Int, neuron_type::TN, μx, σx) where TN
         # NOTE: Wt and d are constant throughout all learning chunks
-        Wt = 2*rand(q, s) - 1
+        Wt = 2*rand(q, s) .- 1
         d = rand(s)
         M = zeros(Float64, s, s)
-        new(p, q, s, neuron_type, μx, σx, Wt, d, M, 0)
+        new{TN,typeof(d)}(p, q, s, neuron_type, μx, σx, Wt, d, M, 0)
     end
 end
 
-function OSELM{TN<:AbstractNodeInput,
-               TV<:AbstractArray}(x::AbstractArray, y::TV;
-                                  neuron_type::TN=Linear(Tanh()),
-                                  s::Int=size(x, 1))
+function OSELM(x::AbstractArray, y::TV;
+               neuron_type::TN=Linear(Tanh()),
+               s::Int=size(x, 1)) where TN <: AbstractNodeInput where TV <: AbstractArray
     q = size(x, 2)  # dimensionality of function domain
     p = size(x, 1)  # number of training points
     s = min(p, s)   # Can't have more neurons than training points
     xn, μx, σx = standardize(x[:, :])
-    out = OSELM{TN,TV}(p, q, s, neuron_type, μx, σx)
+    out = OSELM(p, q, s, neuron_type, μx, σx)
     fit!(out, xn, y)
 end
 
@@ -59,13 +57,11 @@ function fit!(elm::OSELM, x::AbstractArray, y::AbstractArray)
         elm.M -= elm.M*S' * inv(I + S*elm.M*S') * S * elm.M
         elm.v += elm.M * S' * (y - S*elm.v)
     end
-
     elm.p_tot += size(x, 1)
     elm
-
 end
 
-function Base.show{TA}(io::IO, elm::OSELM{TA})
+function Base.show(io::IO, elm::OSELM{TA}) where TA
     s =
     """
     OSELM with
@@ -80,19 +76,19 @@ end
 
 
 function test_me(::Type{OSELM})
-    x = linspace(0, 1, 20)
-    y = sin(6*x[:])
+    x = range(0, stop=1, length=20)
+    y = sin.(6*x[:])
     oselm = OSELM(x, y)
 
-    xt = linspace(0, 1, 300)
-    yt = sin(6*xt)
+    xt = range(0, stop=1, length=300)
+    yt = sin.(6*xt)
 
-    @show maxabs(oselm(xt) - yt)
+    @show maximum(abs.(oselm(xt) .- yt))
 
     for i in 1:50
         x2 = rand(15)
-        y2 = sin(6*x2)
+        y2 = sin.(6*x2)
         fit!(oselm, x2, y2)
-        @printf "%i\t%2.4e\n" i maxabs(oselm(xt) - yt)
+        @printf "%i\t%2.4e\n" i maximum(abs.(oselm(xt) - yt))
     end
 end

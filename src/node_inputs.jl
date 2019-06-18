@@ -1,36 +1,35 @@
-abstract AbstractNodeInput
+abstract type AbstractNodeInput end
 
-immutable Linear{TA<:AbstractActivation} <: AbstractNodeInput
+struct Linear{TA<:AbstractActivation} <: AbstractNodeInput
     activation::TA
 end
 
-Linear{TA}(::Type{TA}) = Linear(TA())
+Linear(::Type{TA}) where TA = Linear(TA())
 
 # special case the event when both x and Wt are vectors
 input_to_node(::Type{Linear}, x::AbstractVector, Wt::AbstractVector, d) =
     dot(x, Wt) + d'
 
 # otherwise let dispatch work its magic
-input_to_node{T<:Linear}(::Type{T}, x, Wt, d) = x*Wt .+ d'
+input_to_node(::Type{T}, x, Wt, d) where {T<:Linear} = x*Wt .+ d'
 input_to_node(::Linear, x, Wt, d) = input_to_node(Linear, x, Wt, d)
 activate(l::Linear, h) = activate(l.activation, h)
 hidden_out(l::Linear, x, Wt, d) = activate(l, input_to_node(l, x, Wt, d))
 
 # Radial basis functions
-abstract AbstractRBFFamily
+abstract type AbstractRBFFamily end
 
-immutable RBF{TF<:AbstractRBFFamily,TD<:Union{PreMetric,SemiMetric}} <: AbstractNodeInput
+struct RBF{TF<:AbstractRBFFamily,TD<:Union{PreMetric,SemiMetric}} <: AbstractNodeInput
     dist::TD
 end
 
-function RBF{TF<:AbstractRBFFamily,
-             TD<:Union{PreMetric,SemiMetric}}(::Union{TF,Type{TF}}, d::TD=SqEuclidean())
+function RBF(::Union{TF,Type{TF}}, d::TD=SqEuclidean()) where TF<:AbstractRBFFamily where TD<:Union{PreMetric,SemiMetric}
     RBF{TF,TD}(d)
 end
 
 
 # Gaussian RBF
-immutable Gaussian <: AbstractRBFFamily end
+struct Gaussian <: AbstractRBFFamily end
 
 input_to_node(r::RBF{Gaussian}, x::AbstractVector, c::AbstractVector, σ::Real) =
     exp(-evaluate(r.dist, x, c)/σ)

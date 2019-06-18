@@ -12,7 +12,7 @@ Philip Reiner and Bogdan M Wilamowski.
 http://ieeexplore.ieee.org/lpdocs/epic03/wrapper.htm?arnumber=6632816
 
 """
-type OptimELM{TV<:AbstractArray{Float64},TN<:RBF} <: AbstractSLFN
+mutable struct OptimELM{TV,TN} <: AbstractSLFN where TV <: AbstractArray{Float64} where TN <: RBF
     p::Int  # Number of training points
     q::Int  # Dimensionality of function domain
     s::Int  # number of neurons
@@ -25,21 +25,21 @@ type OptimELM{TV<:AbstractArray{Float64},TN<:RBF} <: AbstractSLFN
     v::TV
     E::TV  # running error
 
-    function OptimELM(p::Int, q::Int, s::Int, ϵ::Float64, neuron_type::TN)
+    function OptimELM(p::Int, q::Int, s::Int, ϵ::Float64, neuron_type::TN) where TN
         Wt = 2*rand(q, s) - 1
         d = rand(s)
         v = TV(s)
-        new(p, q, s, ϵ, Wt, d, neuron_type, v)
+        new{typeof(v), TN}(p, q, s, ϵ, Wt, d, neuron_type, v)
     end
 end
 
-function OptimELM{TV<:AbstractArray,TN<:RBF}(x::AbstractArray, y::TV;
-                                           s::Int=size(y, 1), ϵ::Float64=1e-6,
-                                           neuron_type::TN=RBF(Gaussian()))
+function OptimELM(x::AbstractArray, y::AbstractArray;
+                  s::Int=size(y, 1), ϵ::Float64=1e-6,
+                  neuron_type::TN=RBF(Gaussian())) where TN <: RBF
     q = size(x, 2)  # dimensionality of function domain
     p = size(y, 1)  # number of training points
     s = min(p, s)   # Can't have more neurons than training points
-    out = OptimELM{TV,TN}(p, q, s, ϵ, neuron_type)
+    out = OptimELM(p, q, s, ϵ, neuron_type)
     out.E = copy(y)
     fit!(out, x, y)
 end
@@ -57,7 +57,7 @@ function fit!(elm::OptimELM, x::AbstractArray, y::AbstractArray)
         n += 1
 
         # --- Step 2.b: find index of max error
-        j = indmax(abs(E))
+        j = argmax(abs.(E))
 
         # --- Step 2.c: Assign new center to be input x
         cn = xt[:, j]
@@ -96,7 +96,7 @@ function fit!(elm::OptimELM, x::AbstractArray, y::AbstractArray)
         end
 
         # Step 2.i: update err
-        err = maxabs(E)
+        err = maximum(abs.(E))
 
     end
 
@@ -111,14 +111,14 @@ function fit!(elm::OptimELM, x::AbstractArray, y::AbstractArray)
 
 end
 
-function Base.show{TA,TN}(io::IO, elm::OptimELM{TA,TN})
+function Base.show(io::IO, elm::OptimELM{TA,TN}) where TA where TN
     m = match(r"SLFN.RBF\{SLFN\.(.+),Distances\.(.+)\}", string(TN))
     ta, td = m[1], m[2]
     n = size(elm.v, 1)
     s = """
     OptimELM with
       - $(elm.q) input dimension(s)
-      - $n RBF{$ta,$td} neuron$(n>1 ? "s": "")
+      - $n RBF{$ta,$td} neuron$(n>1 ? "s" : "")
       - $(elm.p) training point(s)
     """
     print(io, s)

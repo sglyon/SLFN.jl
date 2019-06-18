@@ -10,7 +10,7 @@ Neurocomputing, 2010 vol. 73 (16-18) pp. 3028-3038.
 
 http://linkinghub.elsevier.com/retrieve/pii/S0925231210003401
 """
-type TSELM{TN<:AbstractNodeInput,TV<:AbstractArray{Float64}} <: AbstractSLFN
+mutable struct TSELM{TN,TV} <: AbstractSLFN where TN<:AbstractNodeInput where TV<:AbstractArray{Float64}
     p::Int  # Number of training points
     q::Int  # Dimensionality of function domai
     s::Int  # maximum number of neurons
@@ -24,25 +24,24 @@ type TSELM{TN<:AbstractNodeInput,TV<:AbstractArray{Float64}} <: AbstractSLFN
     v::TV
 
     function TSELM(p::Int, q::Int, s::Int, ngroup::Int, npg::Int,
-                   neuron_type::TN, μx, σx)
-        new(p, q, s, ngroup, npg, neuron_type, μx, σx)
+                   neuron_type::TN, μx, σx, y::TV) where TN where TV
+        new{TN,TV}(p, q, s, ngroup, npg, neuron_type, μx, σx)
     end
 end
 
 
-function TSELM{TN<:AbstractNodeInput,
-               TV<:AbstractArray}(x::AbstractArray, y::TV;
-                                  neuron_type::TN=Linear(Tanh()),
-                                  s::Int=size(x, 1),
-                                  ngroup::Int=5,
-                                  npg::Int=ceil(Int, size(x, 1)/10),
-                                  reg::AbstractLinReg=LSSVD())
+function TSELM(x::AbstractArray, y::TV;
+               neuron_type::TN=Linear(Tanh()),
+               s::Int=size(x, 1),
+               ngroup::Int=5,
+               npg::Int=ceil(Int, size(x, 1)/10),
+               reg::AbstractLinReg=LSSVD()) where TN<:AbstractNodeInput where TV<:AbstractArray
     q = size(x, 2)  # dimensionality of function domain
     p = size(x, 1)  # number of training points
     s = min(p, s)  # can't have more neurons than obs
     npg = min(ceil(Int, s/4), npg)  # ensure at least 4 groups
     xn, μx, σx = standardize(x[:, :])
-    out = TSELM{TN,TV}(p, q, s, ngroup, npg, neuron_type, μx, σx)
+    out = TSELM(p, q, s, ngroup, npg, neuron_type, μx, σx, y)
     fit!(out, xn, y, reg)
 end
 
@@ -69,7 +68,7 @@ function forward_selection!(elm::TSELM, x::AbstractArray, y::AbstractVector,
 
     # initialize
     L = 0
-    R = eye(N, N)
+    R = zeros(Float64, N, N) + I
     W = zeros(elm.q, elm.s + elm.npg)
     d = zeros(elm.s + elm.npg)
 
@@ -78,7 +77,7 @@ function forward_selection!(elm::TSELM, x::AbstractArray, y::AbstractVector,
         inds = (L-elm.npg)+1:L
 
         # variables to hold max ΔJ and corresponding δH for this
-        # batch of groups. Define empty matrices to get type stability
+        # batch of groups. Define empty matrices to get mutable struct stability
         ΔJ = -Inf
         ΔR = zeros(0, 0)
         Ak = zeros(0, 0)
@@ -86,7 +85,7 @@ function forward_selection!(elm::TSELM, x::AbstractArray, y::AbstractVector,
 
         for i in 1:elm.ngroup
             # Step 1: randomly generate hidden parameters for this group
-            wiT = 2*rand(elm.q, elm.npg) - 1  # uniform [-1, 1]
+            wiT = 2*rand(elm.q, elm.npg) .- 1  # uniform [-1, 1]
             di = rand(elm.npg)                # uniform [0, 1]
 
             # Step 2: generate the hidden output for this group
@@ -118,8 +117,8 @@ function forward_selection!(elm::TSELM, x::AbstractArray, y::AbstractVector,
     for p in elm.npg:elm.npg:elm.s
         Hp = hidden_out(elm, validate_x, W[:, 1:p], d[1:p])
         βp = regress(reg, Hp, validate_y)
-        SSEp = StableReg.should_add_intercept(reg) ?
-            norm(validate_y - (Hp*βp[2:end] + βp[1]), 2) :
+        SSEp = should_add_intercept(reg) ?
+            norm(validate_y - (Hp*βp[2:end] .+ βp[1]), 2) :
             norm(validate_y - (Hp*βp), 2)
         fpe = SSEp/N_validate * (N_validate+p)/(N_validate-p)
 
@@ -179,7 +178,7 @@ function fit!(elm::TSELM, x::AbstractArray, y::AbstractVector,
     elm
 end
 
-function Base.show{TA,TN}(io::IO, elm::TSELM{TA,TN})
+function Base.show(io::IO, elm::TSELM{TA,TN}) where TA where TN
     s =
     """
     TSELM with

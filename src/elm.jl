@@ -10,7 +10,7 @@ Neurocomputing, 2006 vol. 70 (1-3) pp. 489-501.
 
 http://linkinghub.elsevier.com/retrieve/pii/S0925231206000385
 """
-type ELM{TN<:AbstractNodeInput,TV<:AbstractArray{Float64}} <: AbstractSLFN
+mutable struct ELM{TN,TV} <: AbstractSLFN where TN <:AbstractNodeInput where TV <:AbstractArray{Float64}
     p::Int  # Number of training points
     q::Int  # Dimensionality of function domain
     s::Int  # number of neurons
@@ -21,22 +21,22 @@ type ELM{TN<:AbstractNodeInput,TV<:AbstractArray{Float64}} <: AbstractSLFN
     d::Vector{Float64}
     v::TV
 
-    function ELM(p::Int, q::Int, s::Int, neuron_type::TN, μx, σx)
-        Wt = 2*rand(q, s) - 1
+    function ELM(p::Int, q::Int, s::Int, neuron_type::TN, μx, σx) where TN
+        Wt = 2*rand(q, s) .- 1
         d = rand(s)
-        new(p, q, s, neuron_type, μx, σx, Wt, d)
+        new{TN,typeof(d)}(p, q, s, neuron_type, μx, σx, Wt, d)
     end
 end
 
-function ELM{TN<:AbstractNodeInput,
-             TV<:AbstractArray}(x::AbstractArray, y::TV;
-                                neuron_type::TN=Linear(Tanh()), s::Int=size(x, 1),
-                                reg::AbstractLinReg=LSSVD())
+function ELM(x::AbstractArray, y::TV;
+             neuron_type::TN=Linear(Tanh()), s::Int=size(x, 1),
+             reg::AbstractLinReg=LSSVD()) where TN<:AbstractNodeInput where TV<:AbstractArray
     q = size(x, 2)  # dimensionality of function domain
     p = size(x, 1)  # number of training points
     s = min(p, s)   # Can't have more neurons than training points
     xn, μx, σx = standardize(x[:, :])
-    out = ELM{TN,TV}(p, q, s, neuron_type, μx, σx)
+    # out = ELM{TN,TV}(p, q, s, neuron_type, μx, σx)
+    out = ELM(p, q, s, neuron_type, μx, σx)
     fit!(out, xn, y, reg)
 end
 
@@ -48,7 +48,7 @@ function fit!(elm::ELM, x::AbstractArray, y::AbstractArray,
     elm
 end
 
-function Base.show{TA}(io::IO, elm::ELM{TA})
+function Base.show(io::IO, elm::ELM{TA}) where TA
     s =
     """
     ELM with

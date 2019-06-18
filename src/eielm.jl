@@ -10,7 +10,7 @@ Neurocomputing, 2008 vol. 71 (16-18) pp. 3460-3468.
 
 http://linkinghub.elsevier.com/retrieve/pii/S0925231207003633
 """
-type EIELM{TA<:AbstractActivation,TV<:AbstractArray{Float64}} <: AbstractSLFN
+mutable struct EIELM{TA,TV} <: AbstractSLFN where TA<:AbstractActivation where TV<:AbstractArray{Float64}
     p::Int              # Number of training points
     q::Int              # Dimensionality of function domain
     Lmax::Int           # maximum number of neurons
@@ -24,25 +24,25 @@ type EIELM{TA<:AbstractActivation,TV<:AbstractArray{Float64}} <: AbstractSLFN
     v::TV
 
     function EIELM(p::Int, q::Int, Lmax::Int, k::Int, ϵ::Float64, activation::TA,
-                   μx, σx)
-        WARNINGS[1] && warn("This is experimental and doesn't work properly")
-        At = Array(Float64, q, Lmax)  # will chop later
-        b = Array(Float64, Lmax)      # ditto
-        v = Array(Float64, Lmax)      # ditto
-        new(p, q, Lmax, k, ϵ, activation, μx, σx, At, b, v)
+                   μx, σx) where TA
+        WARNINGS[1] && @warn("This is experimental and doesn't work properly")
+        At = Array{Float64}(undef, q, Lmax)  # will chop later
+        b = Array{Float64}(undef, Lmax)      # ditto
+        v = Array{Float64}(undef, Lmax)      # ditto
+        new{TA,typeof(v)}(p, q, Lmax, k, ϵ, activation, μx, σx, At, b, v)
     end
 end
 
 
-function EIELM{TA<:AbstractActivation,TV<:AbstractArray}(x::AbstractArray, y::TV;
-                                                         activation::TA=Tanh(),
-                                                         Lmax::Int=size(x, 1), k::Int=20,
-                                                         ϵ::Float64=1e-6)
+function EIELM(x::AbstractArray, y::AbstractActivation;
+               activation::AbstractActivation=Tanh(),
+               Lmax::Int=size(x, 1), k::Int=20,
+               ϵ::Float64=1e-6)
     q = size(x, 2)  # dimensionality of function domain
     p = size(x, 1)  # number of training points
     Lmax = min(Lmax, p)
     xn, μx, σx = normalize(x[:, :])
-    out = EIELM{TA,TV}(p, q, Lmax, k, ϵ, activation, μx, σx)
+    out = EIELM(p, q, Lmax, k, ϵ, activation, μx, σx)
     fit!(out, xn, y)
 end
 
@@ -86,7 +86,7 @@ function fit!(elm::EIELM, x::AbstractArray, y::AbstractArray)
     elm
 end
 
-function Base.show{TA}(io::IO, elm::EIELM{TA})
+function Base.show(io::IO, elm::EIELM{TA}) where TA
     s =
     """
     EIELM with

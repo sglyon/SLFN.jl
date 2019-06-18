@@ -10,7 +10,7 @@ IEEE Trans Neural Netw, 2005 vol. 16 (1) pp. 24-38.
 
 http://ieeexplore.ieee.org/lpdocs/epic03/wrapper.htm?arnumber=1388456
 """
-type AlgebraicNetwork{TN<:Linear} <: AbstractSLFN
+mutable struct AlgebraicNetwork{TN} <: AbstractSLFN where TN <: Linear
     p::Int  # Number of training points
     q::Int  # Dimensionality of function domain
     s::Int  # number of neurons
@@ -25,19 +25,19 @@ type AlgebraicNetwork{TN<:Linear} <: AbstractSLFN
     v::Vector{Float64}
 
     function AlgebraicNetwork(p::Int, q::Int, s::Int, neuron_type::TN,
-                              f::Float64, maxit::Int, μx, σx)
-        Wt = Array(Float64, q, s)
-        d = Array(Float64, s)
-        v = Array(Float64, s)
-        new(p, q, s, 0, f, maxit, neuron_type, μx, σx, Wt, d, v)
+                              f::Float64, maxit::Int, μx, σx) where TN
+        Wt = Array{Float64}(undef, q, s)
+        v = Array{Float64}(undef, s)
+        d = Array{Float64}(undef, s)
+        new{TN}(p, q, s, 0, f, maxit, neuron_type, μx, σx, Wt, d, v)
     end
 end
 
-function AlgebraicNetwork{TN<:Linear}(x::AbstractArray, y::AbstractArray;
-                                      neuron_type::TN=Linear(Tanh()),
-                                      s::Int=size(x, 1), f::Float64=0.8,
-                                      maxit::Int=1000,
-                                      reg::AbstractLinReg=LSSVD())
+function AlgebraicNetwork(x::AbstractArray, y::AbstractArray;
+                          neuron_type::TN=Linear(Tanh()),
+                          s::Int=size(x, 1), f::Float64=0.8,
+                          maxit::Int=1000,
+                          reg::AbstractLinReg=LSSVD()) where TN <: Linear
     p = size(x, 1)
     q = size(x, 2)
 
@@ -45,7 +45,7 @@ function AlgebraicNetwork{TN<:Linear}(x::AbstractArray, y::AbstractArray;
 
     s = min(s, p)
     xn, μx, σx = standardize(x[:, :])
-    out = AlgebraicNetwork{TN}(p, q, s, neuron_type, f, maxit, μx, σx)
+    out = AlgebraicNetwork(p, q, s, neuron_type, f, maxit, μx, σx)
     fit!(out, xn, y, reg)
     out
 end
@@ -57,7 +57,8 @@ function fit!(an::AlgebraicNetwork, x::AbstractArray, y::AbstractVector,
     i = 0
     while true
         i += 1
-        scale!(randn!(an.Wt), an.f)
+        randn!(an.Wt)
+        an.Wt ./= an.f
         # fill!(an.Wt, 5.0)
         an.d = -diag(x * an.Wt)
         S = hidden_out(an, x)
@@ -66,14 +67,14 @@ function fit!(an::AlgebraicNetwork, x::AbstractArray, y::AbstractVector,
             an.n_train_it += 1
             continue
         else
-            an.v = StableReg.regress(reg, S, y)
+            an.v = regress(reg, S, y)
             return an
         end
     end
 
 end
 
-function Base.show{TA}(io::IO, an::AlgebraicNetwork{TA})
+function Base.show(io::IO, an::AlgebraicNetwork{TA}) where TA
     s =
     """
     AlgebraicNetwork with

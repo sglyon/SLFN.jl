@@ -9,19 +9,14 @@ approaches for solving dynamic economic models."
 Kenneth L Judd, Serguei Maliar, and Lilia Maliar.
 
 """
-module StableReg
 
-using Compat: view
 using Parameters
 using MathProgBase
 
-export AbstractLinReg, AbstractLSMethod, AbstractLADMethod,
-    OLS, LSSVD, LSLdiv, RLSTikhonov, RLST, LADPP, LADDP,
-    RLADPP, RALDDP, RLSSVD, regress, standardize
 
-abstract AbstractLinReg
-abstract AbstractLSMethod <: AbstractLinReg
-abstract AbstractLADMethod <: AbstractLinReg
+abstract type AbstractLinReg end
+abstract type AbstractLSMethod <: AbstractLinReg end
+abstract type AbstractLADMethod <: AbstractLinReg end
 
 # --------- #
 # Utilities #
@@ -29,26 +24,28 @@ abstract AbstractLADMethod <: AbstractLinReg
 
 function standardize(x::AbstractMatrix, intercept::Bool=false)
     _x = intercept ? view(x, :, 2:size(x, 2)) : view(x, :, :)
-    μ = mean(_x, 1)
-    σ = std(_x, 1)
+    μ = mean(_x, dims=1)
+    σ = std(_x, dims=1)
     xn = (_x .- μ) ./ σ
     xn, vec(μ), vec(σ)
 end
 
-function standardize(y::AbstractVector, intercept=false)
+function standardize(y::AbstractVector, intercet=false)
     μ = mean(y)
     σ = std(y)
-    yn = (y - μ) / σ
+    yn = (y .- μ) ./ σ
     yn, μ, σ
 end
 
-add_intercept{T}(x::AbstractArray{T}) = [ones(T, size(x, 1)) x]
+function add_intercept(x::AbstractArray{T}) where T
+    [ones(T, size(x, 1)) x]
+end
 
 # --- #
 # OLS #
 # --- #
 
-@with_kw immutable OLS <: AbstractLSMethod
+@with_kw struct OLS <: AbstractLSMethod
     standardize::Bool = true
     intercept::Bool = true
     @assert !(standardize && !(intercept)) "must have intercept if standardizing"
@@ -63,7 +60,7 @@ slopes(::OLS, x, y) = pinv(x'x)*x'y
 # LSLdiv #
 # ------ #
 
-@with_kw immutable LSLdiv <: AbstractLSMethod
+@with_kw struct LSLdiv <: AbstractLSMethod
     standardize::Bool = true
     intercept::Bool = true
     @assert !(standardize && !(intercept)) "must have intercept if standardizing"
@@ -78,7 +75,7 @@ slopes(::LSLdiv, x, y) = x\y
 # LSSVD #
 # ----- #
 
-@with_kw immutable LSSVD <: AbstractLSMethod
+@with_kw struct LSSVD <: AbstractLSMethod
     standardize::Bool = true
     intercept::Bool = true
     @assert !(standardize && !(intercept)) "must have intercept if standardizing"
@@ -88,8 +85,8 @@ end
 should_standardize(m::LSSVD) = m.standardize
 should_add_intercept(m::LSSVD) = m.intercept
 function slopes(m::LSSVD, x, y)
-    U, S, V = svd(x, thin=true)
-    S_inv = diagm(1./S)
+    U, S, V = svd(x, full=false)
+    S_inv = diagm(0 => 1.0 ./ S)
     V*S_inv*U'y
 end
 
@@ -98,7 +95,7 @@ end
 # RLSTikhonov #
 # ----------- #
 
-@with_kw immutable RLSTikhonov <: AbstractLSMethod
+@with_kw struct RLSTikhonov <: AbstractLSMethod
     η::Float64 = -5.0
     standardize::Bool = true
     intercept::Bool = true
@@ -106,7 +103,8 @@ end
     @assert η < 0.0 "penalty parameter for RLSTikhonov must be negative"
 end
 
-typealias RLST RLSTikhonov
+
+const RLST = RLSTikhonov
 
 # API methods
 should_standardize(m::RLSTikhonov) = m.standardize
@@ -120,20 +118,20 @@ end
 # LADPP #
 # ----- #
 
-@with_kw immutable LADPP <: AbstractLADMethod
+@with_kw struct LADPP <: AbstractLADMethod
     standardize::Bool = true
     intercept::Bool = true
     @assert (standardize && intercept) "standardize and intercept must both be true"
 end
 
-doc"""
+"""
 Solves the linear program
 
-$min_{v⁺; v⁻; β} 1v⁺ + 1v⁻$
+``min_{v⁺; v⁻; β} 1v⁺ + 1v⁻``
 
 such that
 
-$\begin{cases}v⁺ - v⁻ + X \beta &= y \\ v⁺ \ge 0, \quad v⁻ \ge 0$
+``\\begin{cases}v⁺ - v⁻ + X \\beta &= y \\\\ v⁺ \\ge 0, \\quad v⁻ \\ge 0``
 
 """
 function slopes(m::LADPP, x, y::AbstractMatrix)
@@ -171,20 +169,20 @@ end
 # LADDP #
 # ----- #
 
-@with_kw immutable LADDP <: AbstractLADMethod
+@with_kw struct LADDP <: AbstractLADMethod
     standardize::Bool = true
     intercept::Bool = true
     @assert (standardize && intercept) "standardize and intercept must both be true"
 end
 
-doc"""
+"""
 Solves the linear program
 
-$min_{q} -y'q
+``min_{q} -y'q``
 
 such that
 
-$X'q = 0 \quad -1 \le q \le 1$
+``X'q = 0 \\quad -1 \\le q \\le 1``
 
 """
 function slopes(m::LADDP, x, y::AbstractMatrix)
@@ -222,7 +220,7 @@ end
 # RLADPP #
 # ------ #
 
-@with_kw immutable RLADPP <: AbstractLADMethod
+@with_kw struct RLADPP <: AbstractLADMethod
     η::Float64 = -5.0
     standardize::Bool = true
     intercept::Bool = true
@@ -230,14 +228,14 @@ end
     @assert (standardize && intercept) "standardize and intercept must both be true"
 end
 
-doc"""
+"""
 Solves the linear program
 
-$min_{c:=[v⁺; v⁻; ψ⁺; ψ⁻]} 1v⁺ + 1v⁻ + 1ψ⁺+ 1ψ⁻$
+``min_{c:=[v⁺; v⁻; ψ⁺; ψ⁻]} 1v⁺ + 1v⁻ + 1ψ⁺+ 1ψ⁻``
 
 such that
 
-$\begin{cases}v⁺ - v⁻ + Xψ⁺ - Xψ⁻ &= y \\ c &\ge 0$
+``\\begin{cases}v⁺ - v⁻ + Xψ⁺ - Xψ⁻ &= y \\\\ c &\\ge 0``
 
 """
 function slopes(m::RLADPP, x, y::AbstractMatrix)
@@ -253,7 +251,7 @@ function slopes(m::RLADPP, x, y::AbstractMatrix)
     c = [ones(2*nobs); fill(10^(m.η)*nobs/nx, 2*nx)]
 
     # equality constraints
-    A = [eye(nobs, nobs) -eye(nobs, nobs) x -x]
+    A = [I -I x -x]
 
     # we need to do linprog equation by equation (1 column of y at a time),
     # so we will pre-allocate a coefficient matrix and fill it in
@@ -274,7 +272,7 @@ end
 # RLADDP #
 # ------ #
 
-@with_kw immutable RLADDP <: AbstractLADMethod
+@with_kw struct RLADDP <: AbstractLADMethod
     η::Float64 = -5.0
     standardize::Bool = true
     intercept::Bool = true
@@ -282,14 +280,14 @@ end
     @assert (standardize && intercept) "standardize and intercept must both be true"
 end
 
-doc"""
+"""
 Solves the linear program
 
-$min_{q} -y'q
+``min_{q} -y'q``
 
 such that
 
-$X'q \le η1 \quad -X'q \le η1, \quad -1 \le q \le 1$
+``X'q \\le η1 \\quad -X'q \\le η1, \\quad -1 \\le q \\le 1``
 
 """
 function slopes(m::RLADDP, x, y::AbstractMatrix)
@@ -327,7 +325,7 @@ end
 # RLSSVD #
 # ------ #
 
-@with_kw immutable RLSSVD <: AbstractLSMethod
+@with_kw struct RLSSVD <: AbstractLSMethod
     κ::Float64=100_000.0
     standardize::Bool = true
     intercept::Bool = true
@@ -339,17 +337,17 @@ end
 should_standardize(m::RLSSVD) = m.standardize
 should_add_intercept(m::RLSSVD) = m.intercept
 function slopes(m::RLSSVD, x, y)
-    U, S, V = svd(x, thin=true)
+    U, S, V = svd(x, full=false)
 
     # find number of sufficiently independent principal components
     condition_numbers = S[1] ./ S[2:end]
-    r = findfirst(_ -> _ > m.κ, condition_numbers)
+    r = findfirst(_1 -> _1 > m.κ, condition_numbers)
     r = r == 0 ? length(S) : r
 
     # extract these columns of V, U, S
     Vr = V[:, 1:r]
     Ur = U[:, 1:r]
-    Sr_inv = diagm(1./S[1:r])
+    Sr_inv = diagm(0 => 1.0 ./ S[1:r])
 
     # compute estimate
     Vr*Sr_inv*Ur'y
@@ -432,5 +430,3 @@ regress(m::AbstractLinReg, x, y) =
     (should_standardize(m)  && !should_add_intercept(m)) ? _reg_norm_noint(m, x, y) :
                                                          _reg_nonorm_noint(m, x, y)
 
-
-end  # module

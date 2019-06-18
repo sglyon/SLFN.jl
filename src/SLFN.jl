@@ -1,19 +1,18 @@
-__precompile__()
-
 module SLFN
 
-using Distances, Compat
-using Compat: view
+using Distances
 import Optim
+
+# stdlib
+using LinearAlgebra, Statistics, InteractiveUtils, Printf, Random
 
 include("stable_regression.jl")
 
-using .StableReg
-export StableReg, AbstractLinReg, AbstractLSMethod, AbstractLADMethod,
+export AbstractLinReg, AbstractLSMethod, AbstractLADMethod,
     OLS, LSSVD, LSLdiv, RLSTikhonov, RLST, LADPP, LADDP,
     RLADPP, RALDDP, RLSSVD, regress
 
-abstract AbstractSLFN
+abstract type AbstractSLFN  end
 
 export AbstractActivation, Sigmoid, SoftPlus, Tanh, Relu, AbstractSLFN,
     fit!, isexact, input_to_node, hidden_out, n_coefs, activate, activate!,
@@ -47,29 +46,28 @@ include("algebraic.jl")
 include("lsielm.jl")
 include("optimelm.jl")
 
-StableReg.standardize(x::AbstractMatrix, μ::AbstractVector, σ::AbstractVector) =
-    (x .- μ') ./ σ'
+standardize(x::AbstractMatrix, μ::AbstractVector, σ::AbstractVector) = (x .- μ') ./ σ'
 
-StableReg.standardize(x::AbstractVector, μ::AbstractVector, σ::AbstractVector) =
+standardize(x::AbstractVector, μ::AbstractVector, σ::AbstractVector) =
     length(μ) == 1 ? (x .- μ') ./ σ' : (x .- μ) ./ σ
 
-function StableReg.standardize(x::Number, μ, σ)
+function standardize(x::Number, μ, σ)
     length(μ) == length(σ) == 1 || error("x shouldn't be scalar")
     (x - μ[1]) / σ[1]
 end
 
-for T in subtypes(AbstractSLFN)
-    @eval @compat function (elm::$(T))(_x′)
+for T in InteractiveUtils.subtypes(AbstractSLFN)
+    @eval function (elm::$(T))(_x′) where T
         @assert size(_x′, 2) == elm.q "wrong input dimension"
         x′ = isdefined(elm, :μx) ? standardize(_x′, elm.μx, elm.σx) : _x′
         if length(elm.v) == size(elm.Wt, 2) + 1 # has intercept
-            hidden_out(elm, x′) * elm.v[2:end] + elm.v[1]
+            hidden_out(elm, x′) * elm.v[2:end] .+ elm.v[1]
         else
             hidden_out(elm, x′) * elm.v
         end
     end
 
-    @eval @compat function (elm::$(T))(_x′::Number)
+    @eval function (elm::$(T))(_x′::Number) where T
         x′ = isdefined(elm, :μx) ? standardize(_x′, elm.μx, elm.σx) : _x′
         if length(elm.v) == size(elm.Wt, 2) + 1 # has intercept
             out_vec = hidden_out(elm, x′) * elm.v[2:end] + elm.v[1]

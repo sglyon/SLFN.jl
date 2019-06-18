@@ -11,7 +11,7 @@ Heidelberg.
 http://link.springer.com/10.1007/978-3-540-72383-7_126
 
 """
-type ROSELM{TN<:Linear} <: AbstractSLFN
+mutable struct ROSELM{TN} <: AbstractSLFN where TN <: Linear
     p::Int  # Number of training points
     q::Int  # Dimensionality of function domain
     s::Int  # number of neurons
@@ -29,19 +29,19 @@ type ROSELM{TN<:Linear} <: AbstractSLFN
     p_tot::Int
 
     function ROSELM(p::Int, q::Int, s::Int, c::Float64, maxit::Int,
-                    neuron_type::TN, μx, σx)
-        Wt = Array(Float64, q, s)
-        d = Array(Float64, s)
-        v = Array(Float64, s)
+                    neuron_type::TN, μx, σx) where TN
+        Wt = Array{Float64}(undef, q, s)
+        d = Array{Float64}(undef, s)
+        v = Array{Float64}(undef, s)
         M = zeros(Float64, 0, 0)
-        new(p, q, s, c, maxit, μx, σx, Wt, d, v, neuron_type, M, 0)
+        new{TN}(p, q, s, c, maxit, μx, σx, Wt, d, v, neuron_type, M, 0)
     end
 end
 
-function ROSELM{TN<:Linear}(x::AbstractArray, y::AbstractVector;
-                            neuron_type::TN=Linear(Tanh()),
-                            s::Int=size(x, 1), maxit::Int=1000,
-                            c::Float64=2.5)
+function ROSELM(x::AbstractArray, y::AbstractVector;
+                neuron_type::TN=Linear(Tanh()),
+                s::Int=size(x, 1), maxit::Int=1000,
+                c::Float64=2.5) where TN <: Linear
     p = size(x, 1)
     q = size(x, 2)
 
@@ -49,7 +49,7 @@ function ROSELM{TN<:Linear}(x::AbstractArray, y::AbstractVector;
 
     s = min(s, p)
     xn, μx, σx = standardize(x[:, :])
-    out = ROSELM{TN}(p, q, s, c, maxit, neuron_type, μx, σx)
+    out = ROSELM(p, q, s, c, maxit, neuron_type, μx, σx)
     fit!(out, xn, y)
     out
 end
@@ -60,7 +60,8 @@ function fit!(elm::ROSELM, x::AbstractArray, y::AbstractVector)
         local S
         for i in 1:elm.maxit
             # initialization phase -- try to find invertible S matrix
-            scale!(randn!(elm.Wt), elm.c)
+            randn!(elm.Wt)
+            elm.Wt ./= elm.c
             elm.d = -diag(x * elm.Wt)
             S = hidden_out(elm, x)
 
@@ -84,7 +85,7 @@ function fit!(elm::ROSELM, x::AbstractArray, y::AbstractVector)
 
 end
 
-function Base.show{TA}(io::IO, elm::ROSELM{TA})
+function Base.show(io::IO, elm::ROSELM{TA}) where TA
     s =
     """
     ROSELM with
@@ -97,19 +98,19 @@ function Base.show{TA}(io::IO, elm::ROSELM{TA})
 end
 
 function test_me(::Type{ROSELM})
-    x = linspace(0, 1, 20) + 0.1*randn(20)
-    y = sin(6*x[:])
+    x = range(0, stop=1, length=20) + 0.1*randn(20)
+    y = sin.(6*x[:])
     roselm = ROSELM(x, y)
 
-    xt = linspace(0, 1, 300)
-    yt = sin(6*xt)
+    xt = range(0, stop=1, length=300)
+    yt = sin.(6*xt)
 
-    @show maxabs(roselm(xt) - yt)
+    @show maximum(abs.(roselm(xt) - yt))
 
     for i in 1:50
         x2 = rand(15) + 0.1 * randn(15)
-        y2 = sin(6*x2)
+        y2 = sin.(6*x2)
         fit!(roselm, x2, y2)
-        @printf "%i\t%2.4e\n" i maxabs(roselm(xt) - yt)
+        @printf "%i\t%2.4e\n" i maximum(abs.(roselm(xt) - yt))
     end
 end
