@@ -149,7 +149,7 @@ function slopes(m::LADPP, x, y::AbstractMatrix)
     c = [ones(2*nobs); zeros(nx)]
 
     # equality constraints
-    A = [eye(nobs, nobs) -eye(nobs, nobs) x]
+    A = [I -I x]
 
     # we need to do linprog equation by equation (1 column of y at a time),
     # so we will pre-allocate a coefficient matrix and fill it in

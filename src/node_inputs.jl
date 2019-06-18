@@ -34,7 +34,7 @@ struct Gaussian <: AbstractRBFFamily end
 input_to_node(r::RBF{Gaussian}, x::AbstractVector, c::AbstractVector, σ::Real) =
     exp(-evaluate(r.dist, x, c)/σ)
 
-input_to_node(t::RBF{Gaussian}, x::AbstractMatrix, c::AbstractVector, σ::Real) =
+input_to_node(r::RBF{Gaussian}, x::AbstractMatrix, c::AbstractVector, σ::Real) =
     exp(-colwise(r.dist, x', c) ./ σ)
 
 function input_to_node(r::RBF{Gaussian}, x::AbstractMatrix, c::AbstractMatrix,
