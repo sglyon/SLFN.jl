@@ -39,7 +39,7 @@ input_to_node(r::RBF{Gaussian}, x::AbstractMatrix, c::AbstractVector, σ::Real) 
 
 function input_to_node(r::RBF{Gaussian}, x::AbstractMatrix, c::AbstractMatrix,
                        σ::AbstractVector)
-    _out = Array(eltype(x), size(c, 2), size(x, 1))
+    _out = Array{eltype(x)}(undef, size(c, 2), size(x, 1))
     xp = x'
     for i in 1:size(x, 1)
         _out[:, i] = input_to_node(r, view(xp, :, i), c, σ)
